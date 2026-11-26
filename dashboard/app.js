@@ -89,6 +89,7 @@ const S = {
   tool: 'look', brush: 2, stroke: null, smooth: true, arrows: false, sel: { i: 13, j: 7 }, playing: null, proof: null,
   fut: null, futBusy: null, futFail: null, veilOn: false, level: { tp: 1, t2m: 1, wind: 2, msl: 1, tcwv: 2, u10: 1, v10: 1 },
   find: null, findBusy: null, findFail: null, findSize: 1, findSign: 1, spec: null, toolsSig: null, liveRetryAt: 0,
+  alerts: null, alertBusy: null, alertFail: null, role: 0,
 };
 const PANELS = {};
 let COAST = [], runTimer = null;
@@ -515,10 +516,73 @@ function specFinder() {
   return { maps, tip, facts };
 }
 
+/* Alerts tab: plain rules checked in each of the 50 futures, shown per role. Thresholds and sources come from the backend. */
+const DAY_SCALE = makeScale([0, 1, 2, 3, 4, 5, 6, 8, 10], PAL.wet);
+function alertWord(n) { return n >= 40 ? ['Act', 'no'] : n >= 25 ? ['Prepare', 'warnc'] : n >= 10 ? ['Watch', ''] : ['No alert', 'ok']; }
+function specAlerts() {
+  const R = S.run, AL = S.alerts, t = S.day;
+  const setFacts = (rows, hint) => { $('changeTitle').textContent = 'Alerts ' + placeText(S.sel.i, S.sel.j); $('changeBody').innerHTML = rows; $('changeHint').textContent = hint; };
+  if (!AL || AL.forRun !== R.id) {
+    const msg = S.alertFail ? 'The alerts did not run.' : 'Checking 50 futures against the rules';
+    return { maps: [blank('Alerts', '', msg, COUNT_SCALE), blank('Alerts', '', msg, COUNT_SCALE), blank('Model forecast', '', msg, COUNT_SCALE)], tip: () => [], facts: () => setFacts(fact(msg, ''), '') };
+  }
+  const role = AL.roles[S.role], keys = role.rules, r1 = AL.rules[keys[0]], r2 = keys[1] ? AL.rules[keys[1]] : null;
+  const f = FIELDS.find((x) => x.key === r1.field), va = fieldAt(R.A, t, f);
+  const asMap = (key, r) => {
+    const v = new Float32Array(CELLS), veil = new Uint8Array(CELLS);
+    for (let p = 0; p < CELLS; p++) { v[p] = r.count[p]; veil[p] = r.applies[p] ? 0 : 1; }
+    return { title: role.lines[key], sub: 'how many of the ' + AL.runs + ' futures', vals: v, scale: COUNT_SCALE, tick,
+      honest: 'Rule: ' + r.says + '. Source: ' + r.source + '. Grey: the rule does not apply there. Regional indicator; follow official warnings.', opts: { sel: S.sel, veil } };
+  };
+  const whenMap = () => {
+    const v = new Float32Array(CELLS), veil = new Uint8Array(CELLS);
+    for (let p = 0; p < CELLS; p++) { v[p] = r1.when[p]; veil[p] = r1.applies[p] ? 0 : 1; }
+    return { title: 'Which day it starts', sub: 'day number', vals: v, scale: DAY_SCALE, tick,
+      honest: 'The day the rule first fires, averaged over the futures where it does. Dark: it does not fire in any future.', opts: { sel: S.sel, veil } };
+  };
+  const maps = [asMap(keys[0], r1), r2 ? asMap(keys[1], r2) : whenMap(),
+    { title: 'Model forecast', sub: f.name + ', ' + f.unit + ', ' + dayText(t), vals: va, scale: f.scale, tick,
+      honest: 'The plain forecast for the field the first rule looks at. Move the slider to step through the days.', opts: { heavy: f.key === 'tp', wind: windOpt(R.A, f), sel: S.sel } }];
+  const tip = (p) => keys.map((k) => [role.lines[k], AL.rules[k].applies[p] ? AL.rules[k].count[p] + ' of ' + AL.runs : 'does not apply here']);
+  const facts = () => {
+    const p = S.sel.i * NLON + S.sel.j;
+    let h = '';
+    for (const k of keys) {
+      const r = AL.rules[k], n = r.count[p], w = alertWord(n);
+      if (!r.applies[p]) { h += fact(role.lines[k], 'does not apply here', 'this square is not ' + (r.where === 'sea' ? 'sea' : r.where === 'hills' ? 'hill country' : 'land')); continue; }
+      const split = n >= 13 && n <= 37 ? ' The futures are split, so treat this as low confidence.' : '';
+      h += fact(role.lines[k], w[0] + ': ' + n + ' of ' + AL.runs, n ? 'starts around day +' + r.when[p] : 'no future shows it', w[1]);
+      if (n >= 10) {
+        const fr = FIELDS.find((x) => x.key === r.field), d = Math.max(1, r.when[p]);
+        h += fact('Why: ' + n + ' of ' + AL.runs + ' futures show ' + r.says + '. The plain forecast for day +' + d + ' is ' + fmt(fr.get(R.A, d * STEP, p)) + ' ' + fr.unit + '.' + split, '') +
+          fact('What to do: ' + role.acts[k], '');
+      }
+    }
+    const u = AL.unusual;
+    h += fact('How unusual is the start day', 'more than ' + Math.floor(u * 100) + '% of training days', u >= 0.99 ? 'Never seen before in training: trust everything here less.' : '', u >= 0.99 ? 'no' : '');
+    setFacts(h, 'Scenario frequency, not a calibrated probability. A regional indicator at 100 km: it does not replace official warnings.');
+  };
+  return { maps, tip, facts };
+}
+async function ensureAlerts() {
+  const R = S.run;
+  if ((S.alerts && S.alerts.forRun === R.id) || S.alertBusy === R.id || S.alertFail === R.id) return;
+  S.alertBusy = R.id;
+  try {
+    const j = await post('api/alerts', { date: S.date });
+    if (S.run.id === R.id) {
+      for (const k in j.rules) for (const a of ['count', 'when', 'applies']) j.rules[k][a] = decU8(j.rules[k][a]);
+      j.forRun = R.id; S.alerts = j; S.alertFail = null; S.toolsSig = null;
+    }
+  } catch (e) { S.alertFail = R.id; banner('The alerts did not run: ' + e.message); }
+  if (S.alertBusy === R.id) S.alertBusy = null;
+  render();
+}
+
 function render() {
   const R = S.run;
   if (!R) return;
-  const spec = S.tab === 'futures' ? specFutures() : S.tab === 'finder' ? specFinder() : specCompare();
+  const spec = S.tab === 'futures' ? specFutures() : S.tab === 'finder' ? specFinder() : S.tab === 'alerts' ? specAlerts() : specCompare();
   S.spec = spec;
   ['mapA', 'mapB', 'mapC'].forEach((id, k) => {
     const P = PANELS[id], m = spec.maps[k];
@@ -537,6 +601,7 @@ function render() {
   if (S.tab === 'futures' || (S.tab === 'whatif' && S.veilOn && R.B)) ensureFutures();
   if (S.tab === 'futures') ensurePlace();
   if (S.tab === 'finder') ensureFinder();
+  if (S.tab === 'alerts') ensureAlerts();
 }
 
 /* ---------- the 50 futures and the Butterfly Finder: fetch when the current tab needs them ---------- */
@@ -594,7 +659,7 @@ async function ensureFinder() {
 /* ---------- the row of controls under the tabs ---------- */
 function drawTools() {
   const f = S.field, F = S.fut, lad = F && F.ladders[f.key];
-  const sig = [S.tab, f.key, lad ? F.id : 0, S.veilOn, S.findSize, S.findSign, S.level[f.key]].join('|');
+  const sig = [S.tab, f.key, lad ? F.id : 0, S.veilOn, S.findSize, S.findSign, S.level[f.key], S.role, S.alerts ? 1 : 0].join('|');
   if (sig === S.toolsSig) return;
   S.toolsSig = sig;
   let h = '';
@@ -609,6 +674,10 @@ function drawTools() {
         (lad.sign === '<=' ? 'at most ' : 'at least ') + lv + ' ' + f.unit + '</option>').join('') + '</select>';
     }
     h += '<span>Click a square to see all 50 futures for that place in the chart below.</span>';
+  } else if (S.tab === 'alerts') {
+    h = '<span>Show alerts for</span>';
+    if (S.alerts) h += '<select id="role">' + S.alerts.roles.map((r, k) => '<option value="' + k + '"' + (k === S.role ? ' selected' : '') + '>' + r.name + '</option>').join('') + '</select>';
+    h += '<span>Each rule is checked in all 50 futures. Click a square for the alerts at that place.</span>';
   } else {
     h = '<span>Outcome: ' + f.name.toLowerCase() + ' over</span><select id="fsize">' +
       ['1 square', '3 by 3 squares', '5 by 5 squares'].map((t, k) => '<option value="' + k + '"' + (k === S.findSize ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>' +
@@ -1022,6 +1091,7 @@ function buildControls() {
     else if (t.id === 'level') S.level[S.field.key] = +t.value;
     else if (t.id === 'fsize') S.findSize = +t.value;
     else if (t.id === 'fsign') S.findSign = +t.value;
+    else if (t.id === 'role') S.role = +t.value;
     render();
   });
   $('brush').addEventListener('input', (e) => { S.brush = +e.target.value; $('brushOut').textContent = S.brush; });
@@ -1080,7 +1150,8 @@ async function start() {
   if (q.get('day')) S.day = Math.max(0, Math.min(m.max_steps, +q.get('day') || 0));
   if (q.get('veil')) S.veilOn = true;
   if (q.get('shot')) document.body.classList.add('shot');
-  if (['forecast', 'futures', 'finder', 'whatif'].includes(q.get('tab'))) setTab(q.get('tab'), true);
+  if (q.get('role')) S.role = Math.max(0, Math.min(4, +q.get('role') || 0));
+  if (['forecast', 'futures', 'finder', 'alerts', 'whatif'].includes(q.get('tab'))) setTab(q.get('tab'), true);
   await runModel();
   if (OFFICIAL[q.get('shock')]) official(q.get('shock'));
   runProof();

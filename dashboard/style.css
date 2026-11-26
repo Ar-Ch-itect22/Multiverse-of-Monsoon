@@ -128,6 +128,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .fact b small { display: block; font-weight: 400; color: var(--mute); font-size: 11.5px; }
 .ok { color: var(--good); }
 .no { color: var(--bad); }
+.warnc { color: var(--amber); }
+.fact b:empty { display: none; }
+.fact b small:only-child { text-align: left; }
 #proofGo { margin-top: 10px; }
 #scores { margin-top: 12px; }
 #scores table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }

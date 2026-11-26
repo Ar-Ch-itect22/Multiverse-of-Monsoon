@@ -34,7 +34,8 @@ The dashboard needs the data file for its starting weather. The graded server do
 | `serve.py` | The graded server. Two routes only. Imports only `model/`. |
 | `model/` | The network, its weights, and a 365-day table of normal weather. |
 | `training/` | Training script and a local scoreboard that uses the organizers' scoring code. |
-| `dashboard/` | The map: `index.html`, `app.js`, `style.css`, and `backend.py` on its own port. |
+| `dashboard/` | The map: `index.html`, `app.js`, `style.css`, and `backend.py` on its own port. `lab.py` holds the 50 futures and the Butterfly Finder, `alerts.py` the alert rules and their sources. |
+| `docs/` | The 2-page brief (`VARUNA_brief.pdf`) and its source. |
 | `SPEC.md` | The rules every teammate and AI tool follows. Read it before writing code. |
 
 ## Honest limits

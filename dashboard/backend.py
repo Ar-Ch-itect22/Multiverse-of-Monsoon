@@ -12,6 +12,7 @@ Routes (all under /api, plus the three static files of the page):
     POST /api/run     fallback when the graded server is off: the same forecast run here
     POST /api/proof   speed, zero-change test, repeat test, and the inputs the page needs to test the graded server
     POST /api/futures 50 forecasts from nudged starts: how many cross a line, the range, the spread (see lab.py)
+    POST /api/alerts  role alerts: plain rules checked in each of the 50 futures (see alerts.py)
     POST /api/finder  Butterfly Finder: what an outcome depends on, with a rerun that tests it (see lab.py)
 """
 from __future__ import annotations
@@ -27,6 +28,7 @@ from pathlib import Path
 
 import numpy as np
 import uvicorn
+from torch import stack as torch_stack
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -34,6 +36,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(HERE))
+import alerts as alert_rules  # noqa: E402
 import lab  # noqa: E402
 from model.net import NC, NLAT, NLON, RAIN, T2M, T2M_MAX, T2M_MIN, Engine  # noqa: E402
 
@@ -76,6 +79,7 @@ class Source:
 
 
 SRC = Source(DATA) if DATA.exists() else None
+UNUSUAL = None                                   # (value per day, sorted training values), filled on first use
 app = FastAPI()
 
 
@@ -258,6 +262,36 @@ async def futures_place(request: Request):
         if CACHE.get("id") != body.get("id"):
             return fail("that result is no longer held", 409)
         return {"id": CACHE["id"], "base": b64(CACHE["base"][:, :, :, i, j].numpy())}       # [runs, T, 7]
+
+
+@app.post("/api/alerts")
+async def alerts(request: Request):
+    """Role alerts: every rule in alerts.py checked in each of the 50 futures."""
+    global UNUSUAL
+    if SRC is None:
+        return fail("no starting weather on disk", 503)
+    try:
+        body = await request.json()
+        date = str(body["date"])
+        init, _, doy, _ = SRC.get(date, MAX_STEPS)
+    except Exception:  # noqa: BLE001
+        return fail("that day is not in the data", 404)
+    key0 = ENGINE.key_from_sincos(sincos(doy))
+    with LOCK:
+        if UNUSUAL is None:
+            years = SRC.time.astype("datetime64[Y]").astype(int) + 1970
+            key = ((SRC.time - SRC.time.astype("datetime64[Y]")).astype(int) + 1) % 365
+            UNUSUAL = alert_rules.unusualness(SRC.data, years, key, ENGINE.clim.numpy(), ENGINE.sigma.numpy().reshape(-1))
+        m = lab.futures(FAST, init, key0, MAX_STEPS, N_RUNS)
+        normal = torch_stack([ENGINE.clim[(key0 + k) % 365, T2M] - 273.15 for k in range(MAX_STEPS + 1)])
+        st = ENGINE.static
+        res = alert_rules.evaluate(m, normal, st[0], st[1] * 2000.0)
+    rules = {}
+    for k, r in alert_rules.RULES.items():
+        rules[k] = {"field": r["field"], "level": r["level"], "where": r["where"], "says": r["says"], "source": r["source"],
+                    "count": b64u8(res[k]["count"]), "when": b64u8(res[k]["when"]), "applies": b64u8(res[k]["applies"])}
+    rank = float(np.searchsorted(UNUSUAL[1], UNUSUAL[0][SRC.index(date)]) / len(UNUSUAL[1]))
+    return {"runs": N_RUNS, "roles": alert_rules.ROLES, "rules": rules, "unusual": rank}
 
 
 @app.post("/api/finder")

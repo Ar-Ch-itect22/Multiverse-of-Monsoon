@@ -32,7 +32,9 @@
   .pipe span { align-self: center; color: #17406e; font-weight: 700; }
   .note { font-size: 7.5pt; color: #4a5669; }
   figure { margin: 0 0 4pt; display: flex; gap: 4mm; align-items: center; }
-  figure img { display: block; width: 79%; border-radius: 3pt; }
+  figure img { display: block; width: 71%; border-radius: 3pt; }
+  .p2 { font-size: 8.2pt; line-height: 1.33; }
+  .p2 table { font-size: 7.8pt; }
   figcaption { flex: 1; font-size: 7.6pt; line-height: 1.33; color: #2c3a4f; }
   .foot { border-top: 0.5pt solid #c3ccd8; margin-top: 4pt; padding-top: 2.5pt; font-size: 7.3pt; color: #4a5669; }
 </style>
@@ -111,7 +113,7 @@
 </section>
 
 <!-- ============================== PAGE 2 ============================== -->
-<section class="page">
+<section class="page p2">
 <header>
   <h1>One map, three questions</h1>
   <div class="meta">What is coming, how sure are we, what does it depend on<br>Plain JavaScript and canvas: no map tiles, no internet</div>
@@ -131,19 +133,20 @@
 <p>Everything on screen is a live model run. The forecast and every what-if are calls from the page to the graded server's own route, and a panel shows the measured speed, the zero-shock test and a same-input-twice test.</p>
 <ul>
   <li><b>Forecast: what is coming.</b> The model's map sits next to what really happened and a third map shows the gap. Click any square for its day-by-day chart. Six fields, 10 days, play button.</li>
-  <li><b>50 futures: how sure are we.</b> The model runs 50 times from slightly nudged starts with a small random kick each day. The kick is set to the model's own one-day miss measured on 2019. On 2020 and 2021 the spread of the 50 runs is 0.71 to 1.0 of the real miss, so it is slightly too confident late in the forecast and we say so on screen. Maps show how many of the 50 cross a line you pick (rain of at least 10, 25 or 50 mm, heat, wind), a bad-case run, and where the runs split. All 50 take about 0.3 s.</li>
+  <li><b>50 futures: how sure are we.</b> The model runs 50 times from slightly nudged starts with a small random kick each day. The kick is set to the model's own one-day miss measured on 2019. On 2020 and 2021 the spread of the 50 runs is 0.71 to 1.0 of the real miss, so it is slightly too confident late in the forecast and we say so on screen. Maps show how many of the 50 cross a line you pick, a bad-case run, and where the runs split. All 50 take about 0.3 s.</li>
   <li><b>Butterfly Finder: what does it depend on.</b> Pick an outcome. We back-propagate through the forecast to find which squares and which fields of the start day it depends on, a method used in published work on learned weather models (Hakim and Masanam 2023). Then we test the map against a real rerun, as in the figure. For temperature the prediction and the rerun agreed to 0.01 &deg;C.</li>
+  <li><b>Alerts: who should act.</b> Five roles (farmer, fisher, heat officer, hill routes, logistics). Each has plain rules, such as rain of 10 mm or more within 3 days, checked in every one of the 50 futures. The page shows the count, the likely day, a one-line reason with the numbers behind it, and how unusual the start day is against the training years. Every threshold is in one file with its source.</li>
   <li><b>What-if: change it yourself.</b> Paint any region or type a box by latitude and longitude. Set a change in temperature, moisture, wind, pressure or rain. Both official shocks are one click. A rerun takes about 0.15 s, so a judge can ask for any shock on the spot.</li>
 </ul>
 
 <h2>Impact use case: act early, and know how much to trust it</h2>
-<p style="break-inside: avoid">A normal forecast gives one answer and no sense of how firm it is. People who must act on weather need three things, and each tab gives one.</p>
+<p style="break-inside: avoid">A normal forecast gives one answer and no sense of how firm it is. People who must act on weather need to know what is coming, how firm it is, and what to watch. The Alerts tab turns the 50 futures into a call for each role.</p>
 <table>
   <tr><th>Who</th><th>Their question</th><th>What VARUNA shows</th></tr>
-  <tr><td>District disaster officer</td><td>Do I move pumps and teams in the next 3 days?</td><td>How many of 50 futures give rain of 50 mm or more over the district, and the bad-case map</td></tr>
-  <tr><td>Farm advisory officer</td><td>Is it safe to leave the cut crop in the field this week?</td><td>The day-by-day rain chart for that square with all 50 runs, so a split forecast is visible</td></tr>
-  <tr><td>Fisheries officer</td><td>Will the wind at sea be too strong?</td><td>Count of futures with wind of 10 m/s or more over sea squares</td></tr>
-  <tr><td>Heat officer</td><td>Is a hot spell likely to hold?</td><td>Count of futures at or above 40 &deg;C, day by day</td></tr>
+  <tr><td>District disaster officer</td><td>Do I move pumps and teams in the next 3 days?</td><td>How many of 50 futures give very heavy rain over the district within 5 days, and the bad-case map</td></tr>
+  <tr><td>Farm advisory officer</td><td>Is it safe to leave the cut crop in the field this week?</td><td>"Rain on a cut crop: act, 50 of 50 futures, starts around day 1", with the reason and the day-by-day chart</td></tr>
+  <tr><td>Fisheries officer</td><td>Will the wind at sea be too strong?</td><td>Count of futures with a daily mean wind of 10.8 m/s or more over sea squares within 3 days</td></tr>
+  <tr><td>Heat officer</td><td>Is a hot spell likely to hold?</td><td>Count of futures with 2 or more days in a row at least 3 &deg;C above normal</td></tr>
   <tr><td>State planner</td><td>What if the monsoon wind stalls?</td><td>The what-if map: where rain drops, by how much, and where the answer is not robust</td></tr>
 </table>
 <p>The Butterfly Finder adds something a forecast cannot: where to watch. If rain over a city on day 4 depends mostly on moisture and pressure in one patch of sea, that patch is where an early sign will show first.</p>
@@ -153,7 +156,8 @@
   <li>Counts out of 50 are how often the model's scenarios do something. They are not calibrated probabilities.</li>
   <li>A what-if or a sensitivity map shows what this model does. It is not proof of real-world cause.</li>
   <li>This is a regional indicator at 100 km and one day. It does not replace official warnings.</li>
-  <li>Next: role-based alerts built on the 50 futures, a wind-aware sea route, a harvest and sowing rain check, and a longer training run to lift day-8 skill.</li>
+  <li>Alert thresholds are for 100 km daily squares. Some are our own choices and are marked as such on screen.</li>
+  <li>Next: a wind-aware sea route, crop-specific checks, and a longer training run to lift day-8 skill.</li>
 </ul>
 </div>
 <div class="foot">Built during the event with PyTorch, NumPy, xarray, FastAPI and uvicorn. No external weather data or services. AI coding tools were used and all code was written during the hackathon. How to train, run and check everything: README.md in the repo.</div>
