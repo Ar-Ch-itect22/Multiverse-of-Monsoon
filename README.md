@@ -3,7 +3,7 @@
 Team Ship Happens. A small weather model for India that you can question: change the starting weather on a map and
 watch what the model says happens next.
 
-The 2-page brief is in [`docs/VARUNA_brief.pdf`](docs/VARUNA_brief.pdf).
+The 2-page brief is [`VARUNA_brief.pdf`](VARUNA_brief.pdf), at the top of this repo.
 
 ## What is in here
 
@@ -91,7 +91,7 @@ Links can open a view directly, for example `http://127.0.0.1:8050/#tab=finder&d
 | `model/` | The network, its weights, and a 365-day table of normal weather. |
 | `training/` | Training, the fade fit, a local scoreboard that uses the organizers' scoring code, and the 50-futures check. |
 | `dashboard/` | The map: `index.html`, `app.js`, `style.css`, and `backend.py` on its own port. `lab.py` holds the 50 futures and the Butterfly Finder, `alerts.py` the alert rules and their sources, `exam.py` the physics exam. |
-| `docs/` | The 2-page brief (`VARUNA_brief.pdf`) and its source. |
+| `VARUNA_brief.pdf` | The 2-page brief. Its source is `docs/brief.html`. |
 | `SPEC.md` | The rules every teammate and AI tool follows. Read it before writing code. |
 
 ## What is simulated or chosen by us
