@@ -18,6 +18,17 @@ const CITIES = [
   ['Kathmandu', 27.7, 85.3, ''], ['Lhasa', 29.7, 91.1, ''], ['Yangon', 16.8, 96.2, ''],
 ];
 
+// Demo starting days, all from the two years the model never saw. Names describe what the recorded data shows.
+const PRESETS = [
+  { date: '2020-08-03', name: 'Peak monsoon', note: 'The wettest days of the season follow' },
+  { date: '2020-05-16', name: 'Bay of Bengal cyclone week', note: 'A deep low forms in the Bay (cyclone Amphan)' },
+  { date: '2021-05-14', name: 'Arabian Sea cyclone week', note: 'A deep low moves up the west coast (cyclone Tauktae)' },
+  { date: '2020-06-01', name: 'Monsoon arrives', note: 'First week of June' },
+  { date: '2020-05-21', name: 'Heat before the rains', note: 'The hottest week on the northern plains' },
+  { date: '2020-10-10', name: 'Monsoon leaves', note: 'Rain shifts to the south and east' },
+  { date: '2020-01-07', name: 'Winter cold spell', note: 'The coldest week on the northern plains' },
+];
+
 /* Colour. Amount fields use one hue from dark (low) to light (high). Fields with a natural middle, and every
    difference map, use two hues around a neutral middle. Nine colours each, one per break. */
 const PAL = {
@@ -469,16 +480,43 @@ function drawProof() {
       fact('Output passes the validity rules', pr.valid_output ? 'yes' : 'no', '', pr.valid_output ? 'ok' : 'no');
     h += pr.graded.running
       ? fact('Graded server on port 8000', pr.graded.max_diff_vs_map === 0 ? 'same answer as this map' : 'differs by ' + pr.graded.max_diff_vs_map.toExponential(1),
-        pr.graded.model_name + ', ' + pr.graded.round_trip_ms.toFixed(0) + ' ms per request', pr.graded.max_diff_vs_map === 0 ? 'ok' : 'no')
+        pr.graded.model_name + ', ' + pr.graded.round_trip_ms.toFixed(0) + ' ms per request over HTTP', pr.graded.max_diff_vs_map === 0 ? 'ok' : 'no')
       : fact('Graded server on port 8000', 'not running', 'start it with: python serve.py --port 8000');
   } else h += fact('Live checks', 'not run yet');
   $('proofBody').innerHTML = h;
+}
+// The page itself sends the same request to the real graded server and compares its answer with the map's own run.
+async function gradedCheck(pr) {
+  const base = 'http://127.0.0.1:' + pr.graded_port, post = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+  try {
+    const health = await (await fetch(base + '/health', { ...post, body: '{}' })).json();
+    const flat = dec(pr.init_states), init = [];
+    for (let t = 0; t < 3; t++) {
+      const day = [];
+      for (let c = 0; c < NC; c++) {
+        const ch = [];
+        for (let i = 0; i < NLAT; i++) ch.push(Array.from(flat.subarray(((t * NC + c) * NLAT + i) * NLON, ((t * NC + c) * NLAT + i + 1) * NLON)));
+        day.push(ch);
+      }
+      init.push(day);
+    }
+    const t0 = performance.now();
+    const res = await (await fetch(base + '/simulate', { ...post, body: JSON.stringify({ init_states: init, doy_sincos: pr.doy_sincos, steps: 10, perturbation: null }) })).json();
+    const ms = performance.now() - t0, theirs = res.rollout.flat(3), ours = dec(pr.rollout);
+    let diff = theirs.length === ours.length ? 0 : Infinity;
+    for (let k = 0; k < ours.length && diff !== Infinity; k++) { const d = Math.abs(theirs[k] - ours[k]); if (!(d <= diff)) diff = d; }
+    return { running: true, model_name: health.model_name, round_trip_ms: ms, server_ms: res.inference_ms, max_diff_vs_map: diff };
+  } catch (e) { return { running: false }; }
 }
 async function runProof() {
   $('proofGo').disabled = true;
   try {
     const r = await fetch('api/proof', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: S.date }) });
-    if (r.ok) S.proof = await r.json();
+    if (r.ok) {
+      const pr = await r.json();
+      pr.graded = await gradedCheck(pr);
+      S.proof = pr;
+    }
   } catch (e) { /* the card keeps its last state */ }
   $('proofGo').disabled = false;
   drawProof();
@@ -730,10 +768,10 @@ async function start() {
   $('dticks').innerHTML = Array.from({ length: m.max_steps + 1 }, (_, k) => '<span>' + (k ? '+' + k : 'Start') + '</span>').join('');
   $('day').max = m.max_steps;
   $('date').min = m.date_min; $('date').max = m.date_max;
-  $('presets').innerHTML = m.presets.map((p) => '<button class="preset" data-date="' + p.date + '">' + p.name + '<small>' + p.note + '</small></button>').join('');
+  $('presets').innerHTML = PRESETS.map((p) => '<button class="preset" data-date="' + p.date + '">' + p.name + '<small>' + p.note + '</small></button>').join('');
   $('presets').addEventListener('click', (e) => { const b = e.target.closest('.preset'); if (b) setDate(b.dataset.date); });
   shockNote(0);
-  S.date = m.presets[0].date; $('date').value = S.date;
+  S.date = PRESETS[0].date; $('date').value = S.date;
   $('presets').children[0].classList.add('on');
   await runModel();
   runProof();

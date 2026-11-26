@@ -7,9 +7,9 @@ It loads the same model as the graded server (the model/ folder) and runs it liv
 serve.py. Starting weather is read from data/india_climate_train.nc, the organizers' file, which stays out of the repo.
 
 Routes (all under /api, plus the three static files of the page):
-    GET  /api/meta    grid, land mask, date range, demo dates, saved scoreboard result
+    GET  /api/meta    grid, land mask, date range, saved scoreboard result
     POST /api/run     one forecast, and the same forecast again with the user's change applied
-    POST /api/proof   speed, zero-change test, repeat test, and a check against the graded server if it is running
+    POST /api/proof   speed, zero-change test, repeat test, and the inputs the page needs to test the graded server
 """
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ import re
 import sys
 import threading
 import time
-import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -40,17 +39,6 @@ GRADED_PORT = 8000
 LOCK = threading.Lock()
 ENGINE = Engine(ROOT / "model")
 PARAMS = int(sum(p.numel() for p in ENGINE.net.parameters()))
-
-# Demo starting days. All are from the two years the model never saw. Names describe what the data shows.
-PRESETS = [
-    {"date": "2020-08-03", "name": "Peak monsoon", "note": "The wettest days of the season follow"},
-    {"date": "2020-05-16", "name": "Bay of Bengal cyclone week", "note": "A deep low forms in the Bay (cyclone Amphan)"},
-    {"date": "2021-05-14", "name": "Arabian Sea cyclone week", "note": "A deep low moves up the west coast (cyclone Tauktae)"},
-    {"date": "2020-06-01", "name": "Monsoon arrives", "note": "First week of June"},
-    {"date": "2020-05-21", "name": "Heat before the rains", "note": "The hottest week on the northern plains"},
-    {"date": "2020-10-10", "name": "Monsoon leaves", "note": "Rain shifts to the south and east"},
-    {"date": "2020-01-07", "name": "Winter cold spell", "note": "The coldest week on the northern plains"},
-]
 
 
 class Source:
@@ -117,7 +105,6 @@ def meta():
         out["error"] = "Starting weather not found. Put india_climate_train.nc in the data folder and restart."
         return out
     out["date_min"], out["date_max"] = str(SRC.time[2]), str(SRC.time[-1])
-    out["presets"] = PRESETS
     return out
 
 
@@ -153,24 +140,6 @@ async def run(request: Request):
             "truth": b64(truth), "truth_days": int(truth.shape[0]), "base_ms": base_ms, "shock_ms": shock_ms}
 
 
-def graded_server_check(init: np.ndarray, sc, ours: np.ndarray) -> dict:
-    """Send the same request to the real graded server over HTTP and compare its answer with the map's."""
-    url = f"http://127.0.0.1:{GRADED_PORT}"
-    try:
-        req = urllib.request.Request(url + "/health", data=b"{}", headers={"Content-Type": "application/json"})
-        health = json.loads(urllib.request.urlopen(req, timeout=3).read())
-        payload = json.dumps({"init_states": init.tolist(), "doy_sincos": sc, "steps": 10, "perturbation": None}).encode()
-        req = urllib.request.Request(url + "/simulate", data=payload, headers={"Content-Type": "application/json"})
-        t0 = time.perf_counter()
-        res = json.loads(urllib.request.urlopen(req, timeout=20).read())
-        ms = (time.perf_counter() - t0) * 1000.0
-        theirs = np.asarray(res["rollout"], "f4")
-        return {"running": True, "model_name": health.get("model_name"), "status": health.get("status"),
-                "round_trip_ms": ms, "max_diff_vs_map": float(np.abs(theirs - ours).max())}
-    except Exception:  # noqa: BLE001
-        return {"running": False}
-
-
 @app.post("/api/proof")
 async def proof(request: Request):
     if SRC is None:
@@ -194,7 +163,9 @@ async def proof(request: Request):
     return {"ms_10_days": float(np.median(times)), "limit_ms": 5000,
             "zero_change_max_diff": float(np.abs(a - zero).max()),
             "repeat_max_diff": float(max(np.abs(a - r).max() for r in runs[1:])),
-            "valid_output": valid, "graded": graded_server_check(init, sc, a)}
+            "valid_output": valid,
+            # the page sends these to the graded server itself and compares the two answers
+            "init_states": b64(init), "doy_sincos": sc, "rollout": b64(a), "graded_port": GRADED_PORT}
 
 
 def page(name: str, kind: str):
