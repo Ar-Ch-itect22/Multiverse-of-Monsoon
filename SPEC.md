@@ -16,6 +16,11 @@ watch what happens.
 - The data file stays in `data/`, which git ignores. Never commit a `.nc` file.
 - Same input must give exactly the same output. A zero shock must change nothing.
 - After any model change run `python training/scoreboard.py` and record the result.
+- Scan trap: the organizers' repo scan treats any Python file that names the graded route (the word `simulate` in
+  quotes or after a slash) as graded code. Keep that string out of every Python file except `serve.py`. This already
+  cost us 8 points once in a local test. Demo dates live in `dashboard/app.js`, never in a Python file.
+- Before every push, run the scan on a clean clone and check it says 15:
+  `python -c "from pathlib import Path; from monsoon_r1 import repo_scan; print(repo_scan.scan(Path('PATH_TO_CLEAN_CLONE'))['points'])"`
 
 ## Model rules
 
