@@ -71,9 +71,10 @@
   <li><b>The season cannot drift.</b> The seasonal cycle lives in the table of normal weather, not in the network. The network only moves the gap from it.</li>
   <li><b>Trained on its own output.</b> The 4-day stage makes small errors meet the model again during training instead of first appearing at test time.</li>
   <li><b>Hard limits on the way out.</b> Rain is cut at zero, temperature is held between &minus;40 and +60 &deg;C, and any non-number is replaced. These are a safety net; in 103 test windows of 10 days none was needed to pass the validity check.</li>
+  <li><b>It fades toward normal as it gets less sure.</b> From day 3 on, only a share of the gap from normal is sent out: for wind 60% at day 8. The shares were fitted on 2019. Rain is not faded, because that cost heavy-rain hits. The state that is rolled forward is untouched. This added 1.2 points on the unseen years.</li>
   <li><b>No randomness.</b> No dropout, no sampling. A zero shock goes through the same arithmetic as no shock and gives a bit-identical answer, which the dashboard checks live.</li>
 </ul>
-<p>Result: 0 invalid windows out of 103, and at day 4 the forecast beats "repeat yesterday" by 27%.</p>
+<p>Result: 0 invalid windows out of 103, and at day 4 the forecast beats "repeat yesterday" by 28%.</p>
 
 <h2>3. How we stop blur</h2>
 <ul>
@@ -83,7 +84,7 @@
 </ul>
 <table>
   <tr><th>Day-8 map variance, model / real</th><th class="n">Temp</th><th class="n">Rain</th><th class="n">Wind E</th><th class="n">Wind N</th><th class="n">Pressure</th><th class="n">Moisture</th></tr>
-  <tr><td>Allowed range 0.40 to 2.50</td><td class="n">1.02</td><td class="n">0.66</td><td class="n">0.81</td><td class="n">0.91</td><td class="n">0.96</td><td class="n">0.93</td></tr>
+  <tr><td>Allowed range 0.40 to 2.50</td><td class="n">1.02</td><td class="n">0.66</td><td class="n">0.76</td><td class="n">0.83</td><td class="n">0.93</td><td class="n">0.90</td></tr>
 </table>
 
 <h2>4. Shocks stay local by construction</h2>
@@ -92,19 +93,19 @@
 <h2>5. Measured results</h2>
 <table>
   <tr><th>Part of the automatic grade</th><th class="n">Ours</th><th>Detail</th></tr>
-  <tr><td>Forecast error</td><td class="n">24.4 / 30</td><td>Skill against the better of "repeat yesterday" and "normal for the season": day 1 +0.26, day 4 +0.06, day 8 &minus;0.03</td></tr>
+  <tr><td>Forecast error</td><td class="n">25.7 / 30</td><td>Skill against the better of "repeat yesterday" and "normal for the season": day 1 +0.26, day 4 +0.07, day 8 &minus;0.02</td></tr>
   <tr><td>Heavy rain (10 mm/day)</td><td class="n">7.7 / 15</td><td>Hit-rate skill +0.05 over the better baseline</td></tr>
   <tr><td>Sharpness</td><td class="n">10 / 10</td><td>All six fields inside the allowed range</td></tr>
-  <tr><td>Shock tests</td><td class="n">13.3 / 15</td><td>Both shocks give a local, non-zero response in every window. A zero shock changes nothing.</td></tr>
-  <tr><td><b>Model total</b></td><td class="n"><b>55.4 / 70</b></td><td>Repo scan on a clean clone: 15 / 15</td></tr>
+  <tr><td>Shock tests</td><td class="n">13.1 / 15</td><td>Both shocks give a local, non-zero response in every window. A zero shock changes nothing.</td></tr>
+  <tr><td><b>Model total</b></td><td class="n"><b>56.6 / 70</b></td><td>Repo scan on a clean clone: 15 / 15</td></tr>
 </table>
 <p class="note">These come from our own scoreboard, which calls the organizers' scoring functions on 103 windows from 2020 and 2021. The hidden test uses other dates, so the official numbers will differ.</p>
 
 <h2>6. Failure modes</h2>
 <ul>
-  <li><b>Past a week it adds little.</b> At day 8 the forecast is slightly worse than simply showing normal weather for the season (skill &minus;0.03).</li>
+  <li><b>Past a week it adds little.</b> Even with the fade, at day 8 the forecast is slightly worse than simply showing normal weather for the season (skill &minus;0.02).</li>
   <li><b>Heavy rain is under-called.</b> Rain keeps only 66% of its real map variance at day 8 and heavy-rain skill is small. One square is about 100 km and one step is a day, so cloudbursts and city floods are out of reach.</li>
-  <li><b>Wind shocks fade too fast.</b> For the "monsoon stall" shock the response spread outward by days 4 to 8 in only 31% of windows. The model damps a wind change before it travels.</li>
+  <li><b>Wind shocks fade too fast.</b> For the "monsoon stall" shock the response spread outward by days 4 to 8 in only 23% of windows. The model damps a wind change before it travels.</li>
   <li><b>Occasional over-reaction.</b> For the "warm ocean" shock the response stayed within 5 standard deviations in 77% of windows, not all.</li>
   <li><b>Cyclones are too weak.</b> A cyclone's core is smaller than one square, so the model shows a low, not its true strength.</li>
   <li><b>Far-out what-ifs are guesses.</b> A change well beyond anything in 2005 to 2018 takes the model outside what it learned.</li>

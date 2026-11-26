@@ -62,6 +62,7 @@ def fast_copy(engine):
     e = copy.copy(engine)
     e.net = copy.deepcopy(engine.net).to("cuda")
     e.clim, e.sigma, e.static = engine.clim.to("cuda"), engine.sigma.to("cuda"), engine.static.to("cuda")
+    e.fade = None if engine.fade is None else engine.fade.to("cuda")
     return e
 
 
@@ -118,7 +119,9 @@ def futures(engine, init: np.ndarray, key0: int, steps: int, n: int, delta=None,
         return z.to(dev)
 
     days = [decode(engine, hist[:, -1], key0)]
-    days += [decode(engine, a, (key0 + k) % NKEY) for k, a in enumerate(roll(engine, hist, key0, steps, kick), 1)]
+    for k, a in enumerate(roll(engine, hist, key0, steps, kick), 1):
+        # the plain forecast is faded exactly as the graded server fades it; each run keeps its own distance from it
+        days.append(decode(engine, engine.faded(a[:1], k) + (a - a[:1]), (key0 + k) % NKEY))
     return display(torch.stack(days, 1)).cpu()
 
 
@@ -164,7 +167,7 @@ def finder(engine, init: np.ndarray, sc, day: int, field: str, cells, sign: floa
     hist0 = start_history(engine, init, key0)[None]
     d = torch.zeros(NC, NLAT, NLON, requires_grad=True)
     hist = torch.cat([hist0[:, :2], (hist0[:, 2] + d)[:, None]], 1)
-    target = outcome(decode(engine, roll(engine, hist, key0, day)[-1], (key0 + day) % NKEY)[0])
+    target = outcome(decode(engine, engine.faded(roll(engine, hist, key0, day)[-1], day), (key0 + day) % NKEY)[0])
     g = torch.autograd.grad(target, d)[0].detach()                          # outcome change per one typical swing, per field, per square
     score = g.pow(2).sum(0).sqrt()
     top = float(score.max())

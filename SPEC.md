@@ -28,6 +28,8 @@ watch what happens.
 - Banned inside the network: attention, pooling, BatchNorm, GroupNorm, InstanceNorm, Fourier layers.
 - Predict the change from the seasonal normal. Rain is handled as log(1 + rain) and is never negative.
 - Data split: train 2005 to 2018, tune 2019, final check 2020 and 2021. Never tune on the final-check years.
+- The fade: from day 3 on the server sends out only a share of the forecast's gap from normal weather, per field.
+  `training/fit_fade.py` fits the shares on 2019 and writes them into `model/norm.npz`. Rerun it after any retraining.
 
 ## Dashboard (separate folder, separate backend)
 

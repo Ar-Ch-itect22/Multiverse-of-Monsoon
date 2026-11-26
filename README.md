@@ -22,6 +22,7 @@ Put the organizers' file `india_climate_train.nc` in a folder named `data/`. It 
 | Graded server | `python serve.py --port 8000` | `POST /health` and `POST /simulate`, offline, CPU only |
 | Dashboard | `python dashboard/backend.py` | open http://127.0.0.1:8050 |
 | Train the model | `python training/train.py` | writes `model/varuna.pt` and `model/norm.npz` |
+| Fit the fade | `python training/fit_fade.py` | writes the share of the forecast kept at each day ahead into `model/norm.npz` |
 | Score the model | `python training/scoreboard.py --save dashboard/scores.json` | prints our estimate of the 70 model points |
 | Check the 50 futures | `python training/calibrate_futures.py --years 2020 2021 --scales 1.0 --save dashboard/futures_check.json` | prints spread against real miss |
 

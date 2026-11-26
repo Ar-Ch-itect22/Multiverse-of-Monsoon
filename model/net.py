@@ -99,6 +99,8 @@ class Engine:
         self.clim = torch.from_numpy(d["clim"])            # [365, 6, H, W] model space (rain as log1p)
         self.sigma = torch.from_numpy(d["sigma"]).view(NC, 1, 1)
         self.static = torch.from_numpy(d["static"])        # [4, H, W]
+        # share of the gap from normal kept at each day ahead, per field [days, 6]; absent = keep everything
+        self.fade = torch.from_numpy(d["fade"]) if "fade" in d.files else None
         self.net = LocalNet(int(d["width"]), int(d["blocks"]))
         self.net.load_state_dict(torch.load(Path(folder) / "varuna.pt", map_location="cpu"))
         self.net.eval()
@@ -113,6 +115,14 @@ class Engine:
         z[RAIN] = torch.expm1(z[RAIN].clamp(min=0))
         z[T2M] = z[T2M].clamp(T2M_MIN, T2M_MAX)
         return z
+
+    def faded(self, a: torch.Tensor, k: int) -> torch.Tensor:
+        """Anomaly [..., 6, H, W] for day k ahead -> the share of it that is sent out. A forecast gets less sure with
+        every day, so past a few days only part of its gap from normal weather is kept (fitted on the tuning year by
+        training/fit_fade.py). Only the output is changed; the state that is rolled forward is not."""
+        if self.fade is None or k < 1:
+            return a
+        return a * self.fade[min(k, self.fade.shape[0]) - 1].view(NC, 1, 1)
 
     @staticmethod
     def key_from_sincos(doy_sincos) -> int:
@@ -133,7 +143,7 @@ class Engine:
             kn = (key0 + k) % NKEY
             floor = (-self.clim[kn, RAIN] / self.sigma[RAIN])[None]
             nxt = step(self.net, hist, torch.tensor([(key0 + k - 1) % NKEY]), self.static, floor)
-            out.append(self.decode(nxt[0].clone(), kn))
+            out.append(self.decode(self.faded(nxt[0], k).clone(), kn))
             hist = torch.cat([hist[:, 1:], nxt[:, None]], 1)
         res = torch.stack(out)
         return torch.nan_to_num(res, nan=0.0, posinf=0.0, neginf=0.0).numpy()
