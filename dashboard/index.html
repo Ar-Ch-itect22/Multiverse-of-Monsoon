@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VARUNA: monsoon what-if map</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo">VARUNA</span>
+    <span class="tagline">Change the starting weather. Watch what happens.</span>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chipModel">Loading the model</span>
+    <span class="chip" id="chipSpeed" title="Time the model took on this laptop's processor. The limit is 5000 ms.">Speed</span>
+    <span class="chip" id="chipYear">Year</span>
+  </div>
+</header>
+<div class="banner" id="banner" hidden></div>
+
+<div class="layout">
+  <aside class="side">
+    <section class="card">
+      <h2><b>1</b>Pick the starting weather</h2>
+      <div class="presets" id="presets"></div>
+      <label class="line">Any other day <input type="date" id="date"></label>
+    </section>
+
+    <section class="card">
+      <h2><b>2</b>Pick what to look at</h2>
+      <div class="fields" id="fields"></div>
+      <label class="check"><input type="checkbox" id="smooth" checked> Smooth the squares</label>
+      <label class="check"><input type="checkbox" id="arrows"> Wind arrows on every map</label>
+    </section>
+
+    <section class="card">
+      <h2><b>3</b>Change the starting weather</h2>
+      <p class="hint">Paint a region, set the change, and the model reruns at once.</p>
+      <button id="offWarm" class="btn wide">Warm the Bay of Bengal<small>Official shock: +3 °C and +15% moisture</small></button>
+      <button id="offStall" class="btn wide">Stall the Arabian Sea wind<small>Official shock: wind cut by 40%</small></button>
+
+      <div class="seg" id="tools">
+        <button data-tool="look" class="on">Look</button>
+        <button data-tool="brush">Brush</button>
+        <button data-tool="box">Box</button>
+        <button data-tool="erase">Rub out</button>
+      </div>
+      <label class="slider"><span>Brush size</span><output id="brushOut">2</output>
+        <input type="range" id="brush" min="1" max="6" value="2" step="1"></label>
+      <div class="boxrow">
+        <span>Box by numbers</span>
+        <div><input id="la0" type="number" value="8" min="6" max="38" step="1" aria-label="south latitude">
+        to <input id="la1" type="number" value="20" min="6" max="38" step="1" aria-label="north latitude"> °N</div>
+        <div><input id="lo0" type="number" value="82" min="65" max="101" step="1" aria-label="west longitude">
+        to <input id="lo1" type="number" value="94" min="65" max="101" step="1" aria-label="east longitude"> °E
+        <button id="boxGo" class="btn small">Use</button></div>
+      </div>
+
+      <div class="sliders" id="sliders"></div>
+      <div class="rowbtns">
+        <button id="clearRegion" class="btn small">Clear region</button>
+        <button id="resetShock" class="btn small">Reset all</button>
+      </div>
+      <p class="hint" id="shockNote"></p>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="tabs" id="tabs">
+      <button data-tab="forecast" class="on">Forecast<small>and what really happened</small></button>
+      <button data-tab="whatif">What-if<small>with and without your change</small></button>
+    </div>
+
+    <div class="maps">
+      <figure class="map" id="mapA"></figure>
+      <figure class="map" id="mapB"></figure>
+      <figure class="map" id="mapC"></figure>
+    </div>
+
+    <div class="timeline">
+      <button id="play" class="btn round" title="Play or pause (space bar)">&#9654;</button>
+      <div class="track">
+        <input type="range" id="day" min="0" max="10" value="3" step="1" aria-label="day of the forecast">
+        <div class="dticks" id="dticks"></div>
+      </div>
+      <div class="daylabel" id="dayLabel"></div>
+    </div>
+
+    <div class="cards">
+      <section class="card">
+        <h3 id="placeTitle">This place</h3>
+        <div class="legendline" id="placeLegend"></div>
+        <canvas id="placeCv"></canvas>
+        <p class="hint">Click any square on a map to follow that place. Click the chart to jump to a day.</p>
+      </section>
+      <section class="card">
+        <h3 id="changeTitle">What changed</h3>
+        <div class="facts" id="changeBody"></div>
+        <p class="hint" id="changeHint"></p>
+      </section>
+      <section class="card">
+        <h3>Proof</h3>
+        <div class="facts" id="proofBody"></div>
+        <button id="proofGo" class="btn small">Run the checks now</button>
+        <div id="scores"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="tip" id="tip" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

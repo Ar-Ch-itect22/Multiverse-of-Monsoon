@@ -1,0 +1,9 @@
+# Graded server (serve.py)
+numpy
+torch
+fastapi
+uvicorn
+
+# Training, scoreboard and dashboard only
+xarray
+netCDF4
