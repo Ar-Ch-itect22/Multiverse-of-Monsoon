@@ -122,7 +122,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .legendline i.dash { border-top-style: dashed; }
 .legendline b { color: var(--ink); font-weight: 600; }
 .facts { display: grid; gap: 6px; font-size: 13px; }
-.fact { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: baseline; border-bottom: 1px solid #1c2740; padding-bottom: 5px; }
+.fact { display: grid; grid-template-columns: minmax(40%, 1fr) minmax(0, auto); gap: 10px; align-items: baseline; border-bottom: 1px solid #1c2740; padding-bottom: 5px; }
 .fact span { color: var(--ink2); }
 .fact b { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .fact b small { display: block; font-weight: 400; color: var(--mute); font-size: 11.5px; }
@@ -131,7 +131,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
 .warnc { color: var(--amber); }
 .fact b:empty { display: none; }
 .fact b small:only-child { text-align: left; }
-#proofGo { margin-top: 10px; }
+#proofGo, #examGo { margin-top: 10px; }
+#examBody { margin-top: 10px; }
+.fact i { color: var(--mute); }
 #scores { margin-top: 12px; }
 #scores table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 #scores td { padding: 3px 0; border-bottom: 1px solid #1c2740; color: var(--ink2); }

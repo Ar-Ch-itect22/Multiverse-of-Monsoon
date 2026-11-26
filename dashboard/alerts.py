@@ -27,6 +27,9 @@ RULES = {
     "dry_spell": {"kind": "run_below", "field": "tp", "level": 2.5, "run": 5, "days": (1, 10), "where": "land", "unit": "mm/day",
                   "says": "5 or more days in a row with under 2.5 mm of rain, within the next 10 days",
                   "source": "the India Meteorological Department counts a day as rainy at 2.5 mm or more; 5 days is a team choice"},
+    "spray_window": {"kind": "calm_dry", "field": "tp", "level": 2.5, "wind": 5.0, "days": (1, 3), "where": "land", "unit": "mm/day", "good": True,
+                     "says": "at least one dry and calm day (under 2.5 mm of rain, wind under 5 m/s) within days 1 to 3",
+                     "source": "2.5 mm is the India Meteorological Department's rainy-day line; the 5 m/s wind limit is a team choice"},
     "hot_spell": {"kind": "run_above_normal", "field": "t2m", "level": 3.0, "run": 2, "days": (1, 7), "where": "land", "unit": "deg C above normal",
                   "says": "2 or more days in a row at least 3 deg C above normal for the season, within days 1 to 7",
                   "source": "team choice on the daily mean; official heat-wave rules use the daily maximum at stations"},
@@ -39,9 +42,10 @@ RULES = {
 }
 
 ROLES = [
-    {"key": "farmer", "name": "Farmer", "rules": ["rain_3d", "dry_spell"],
-     "lines": {"rain_3d": "Rain on a cut crop", "dry_spell": "Dry spell after sowing"},
-     "acts": {"rain_3d": "Move the harvested crop under cover before the rain day.", "dry_spell": "Hold sowing, or plan to water the seedbed."}},
+    {"key": "farmer", "name": "Farmer", "rules": ["rain_3d", "dry_spell", "spray_window"],
+     "lines": {"rain_3d": "Rain on a cut crop", "dry_spell": "Dry spell after sowing", "spray_window": "A dry, calm day for spraying"},
+     "acts": {"rain_3d": "Move the harvested crop under cover before the rain day.", "dry_spell": "Hold sowing, or plan to water the seedbed.",
+              "spray_window": "Spray on the dry, calm day."}},
     {"key": "fisher", "name": "Fisher", "rules": ["sea_wind"],
      "lines": {"sea_wind": "Strong wind at sea"}, "acts": {"sea_wind": "Small boats should stay in port on those days."}},
     {"key": "heat", "name": "Heat officer", "rules": ["hot_spell"],
@@ -66,6 +70,8 @@ def evaluate(m: torch.Tensor, normal_t: torch.Tensor, land: torch.Tensor, height
         x = m[:, d0:d1 + 1, FIELD[r["field"]]]                                   # [runs, days, H, W]
         if r["kind"] == "any_above":
             cond, need = x >= r["level"], 1
+        elif r["kind"] == "calm_dry":
+            cond, need = (x < r["level"]) & (m[:, d0:d1 + 1, FIELD["wind"]] < r["wind"]), 1
         elif r["kind"] == "run_below":
             cond, need = x < r["level"], r["run"]
         elif r["kind"] == "run_above_normal":

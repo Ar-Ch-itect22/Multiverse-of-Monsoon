@@ -64,6 +64,12 @@ const FIELDS = [
     get: (a, o, p) => a[o + 2 * CELLS + p] },
   { key: 'v10', name: 'Wind to the north', unit: 'm/s', breaks: [-16, -10, -6, -3, 0, 3, 6, 10, 16], pal: 'temp', dpal: 'dWarm', floor: 1, notice: 0.2,
     get: (a, o, p) => a[o + 3 * CELLS + p] },
+  { key: 'flow', name: 'Moisture flow', unit: 'kg/m/s', breaks: [0, 50, 100, 150, 200, 300, 400, 550, 700], pal: 'wet', dpal: 'dWet', floor: 20, notice: 5, local: true,
+    note: ' Moisture in the air times the wind near the ground: a rough guide to where moisture is being carried, not a true transport figure.',
+    get: (a, o, p) => a[o + 5 * CELLS + p] * Math.hypot(a[o + 2 * CELLS + p], a[o + 3 * CELLS + p]) },
+  { key: 'still', name: 'Still air score', unit: 'out of 10', breaks: [0, 1, 2, 3, 4, 5, 6, 8, 10], pal: 'mist', dpal: 'dWarm', floor: 1, notice: 0.5, local: true,
+    note: ' High when the wind is under 4 m/s and there is no rain to wash the air. Not air quality: there is no pollution data here.',
+    get: (a, o, p) => { const w = Math.hypot(a[o + 2 * CELLS + p], a[o + 3 * CELLS + p]), r = a[o + CELLS + p]; return 10 * Math.max(0, 1 - w / 4) * (r < 1 ? 1 : r < 5 ? 0.5 : 0.2); } },
 ];
 for (const f of FIELDS) f.scale = makeScale(f.breaks, PAL[f.pal]);
 const COUNT_SCALE = makeScale([0, 1, 5, 10, 20, 30, 40, 45, 50], PAL.count);       // how many of the 50 futures
@@ -89,10 +95,10 @@ const S = {
   tool: 'look', brush: 2, stroke: null, smooth: true, arrows: false, sel: { i: 13, j: 7 }, playing: null, proof: null,
   fut: null, futBusy: null, futFail: null, veilOn: false, level: { tp: 1, t2m: 1, wind: 2, msl: 1, tcwv: 2, u10: 1, v10: 1 },
   find: null, findBusy: null, findFail: null, findSize: 1, findSign: 1, spec: null, toolsSig: null, liveRetryAt: 0,
-  alerts: null, alertBusy: null, alertFail: null, role: 0,
+  alerts: null, alertBusy: null, alertFail: null, role: 0, portA: 0, portB: 5, exam: null,
 };
 const PANELS = {};
-let COAST = [], runTimer = null;
+let COAST = [], LANDF = new Float32Array(CELLS), runTimer = null;
 
 /* ---------- small helpers ---------- */
 function dec(b64) {
@@ -299,6 +305,15 @@ function drawMap(P, vals, sc, o) {
       haloText(ctx, c[0], c[3] === 'l' ? x - 5 : x + 5, y, c[3] === 'l' ? 'right' : 'left');
     }
   }
+  if (o.ports) {
+    ctx.font = '600 11px "Segoe UI", system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    for (const pt of o.ports) {
+      const x = (pt.p % NLON + 0.5) * sx, y = (NLAT - Math.floor(pt.p / NLON) - 0.5) * sy;
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 6.3); ctx.fillStyle = 'rgba(6,10,18,0.9)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 3.4, 0, 6.3); ctx.fillStyle = '#ffd43b'; ctx.fill();
+      if (!CITIES.some((c) => c[0] === pt.name && c[3])) haloText(ctx, pt.name, x + 8, y - 9, 'left');
+    }
+  }
   if (o.box) {
     const x = o.box.j0 * sx, y = (NLAT - 1 - o.box.i1) * sy, bw = (o.box.j1 - o.box.j0 + 1) * sx, bh = (o.box.i1 - o.box.i0 + 1) * sy;
     ctx.strokeStyle = 'rgba(6,10,18,0.9)'; ctx.lineWidth = 4; ctx.strokeRect(x, y, bw, bh);
@@ -354,7 +369,7 @@ function fieldAt(arr, t, f) {
   return v;
 }
 function windOpt(arr, f) {
-  return arr && (S.arrows || f.key === 'wind' || f.key === 'u10' || f.key === 'v10') ? { arr, o: S.day * STEP } : null;
+  return arr && (S.arrows || f.key === 'wind' || f.key === 'u10' || f.key === 'v10' || f.key === 'flow') ? { arr, o: S.day * STEP } : null;
 }
 function seenText() {
   const t = S.run.tag;
@@ -388,7 +403,7 @@ function specCompare() {
   }
   const what = f.name + ', ' + f.unit, heavy = f.key === 'tp' ? ' Pink line: heavy rain, 10 mm a day or more.' : '';
   const maps = [
-    { title: V.titles[0], sub: what, vals: va, scale: f.scale, tick, honest: 'Model forecast, about 100 km squares, daily.' + heavy,
+    { title: V.titles[0], sub: what, vals: va, scale: f.scale, tick, honest: 'Model forecast, about 100 km squares, daily.' + heavy + (f.note || ''),
       opts: { heavy: f.key === 'tp', wind: windOpt(V.A, f), mask: showMask, fill: true, sel: S.sel } },
     { title: V.titles[1], sub: what, vals: vb, scale: f.scale, tick, empty: V.emptyB,
       honest: fc ? 'Recorded weather from the organizers\' data. ' + seenText() : 'Modelled what-if, not proof of real-world effect. Yellow line: your region.',
@@ -415,6 +430,11 @@ function specFutures() {
   if (!F || F.forRun !== R.id) {
     const msg = S.futFail ? 'The 50 futures did not run.' : 'Running 50 futures';
     return { maps: [blank('How many of the 50 futures', '', msg, COUNT_SCALE), blank('A bad-case future', '', msg, f.scale), blank('How much the futures disagree', '', msg, COUNT_SCALE)],
+      tip: () => [], facts: () => { $('changeTitle').textContent = 'How sure are we?'; $('changeBody').innerHTML = fact(msg, ''); $('changeHint').textContent = ''; } };
+  }
+  if (f.local) {
+    const msg = 'This field is worked out in the page only. Pick one of the first seven fields for this tab.';
+    return { maps: [blank('How many of the 50 futures', '', msg, COUNT_SCALE), blank('A bad-case future', '', msg, COUNT_SCALE), blank('How much the futures disagree', '', msg, COUNT_SCALE)],
       tip: () => [], facts: () => { $('changeTitle').textContent = 'How sure are we?'; $('changeBody').innerHTML = fact(msg, ''); $('changeHint').textContent = ''; } };
   }
   const fi = F.fi[f.key], T = F.T, at = (a) => a.subarray((fi * T + t) * CELLS, (fi * T + t + 1) * CELLS);
@@ -479,7 +499,8 @@ function specFinder() {
     opts: { heavy: f.key === 'tp', wind: windOpt(R.A, f), box, lines: X && !X.flat ? [{ segs: X.patchSegs, color: '#ffd43b', width: 1.8 }] : null } };
   const setFacts = (rows, hint) => { $('changeTitle').textContent = 'Butterfly Finder: ' + goal; $('changeBody').innerHTML = rows; $('changeHint').textContent = hint; };
   let msg = null;
-  if (t === 0) msg = 'Move the slider to a day after the start day.';
+  if (f.local) msg = 'This field is worked out in the page only. Pick one of the first seven fields for this tab.';
+  else if (t === 0) msg = 'Move the slider to a day after the start day.';
   else if (!X) msg = S.findFail === finderKey() ? 'The Finder did not run.' : 'Tracing what this depends on';
   else if (X.flat) msg = 'Nothing to trace: the forecast here is flat, for example no rain at all. Pick another square, day or field.';
   if (msg) {
@@ -516,9 +537,111 @@ function specFinder() {
   return { maps, tip, facts };
 }
 
+/* Sea route tab: a square-by-square path between two ports that avoids strong wind and headwind on the chosen day.
+   Wind only: no waves, tides, currents, depth or shipping lanes. A sketch, not a navigable route. */
+const PORTS = [['Mumbai', 18.5, 72.5], ['Kandla', 22.5, 69.5], ['Karachi', 24.5, 66.5], ['Kochi', 9.5, 75.5], ['Colombo', 6.5, 79.5],
+  ['Chennai', 13.5, 80.5], ['Visakhapatnam', 17.5, 83.5], ['Kolkata', 21.5, 88.5], ['Chittagong', 21.5, 91.5], ['Port Blair', 11.5, 92.5]];
+const STRONG = 10.8;                                   // Beaufort force 6 starts here, m/s
+function isSea(p) { return LANDF[p] <= 0.85; }
+function portCell(k) {                                 // the nearest square to the port that counts as sea
+  const i0 = Math.round(PORTS[k][1] - 6.5), j0 = Math.round(PORTS[k][2] - 65.5);
+  let best = -1, bd = 1e9;
+  for (let i = Math.max(0, i0 - 2); i <= Math.min(NLAT - 1, i0 + 2); i++) for (let j = Math.max(0, j0 - 2); j <= Math.min(NLON - 1, j0 + 2); j++) {
+    const d = Math.hypot(i - i0, j - j0);
+    if (isSea(i * NLON + j) && d < bd) { bd = d; best = i * NLON + j; }
+  }
+  return best;
+}
+// Dijkstra over sea squares. With wind = null every square costs its distance only (the shortest route).
+function seaPath(from, to, wind) {
+  const cost = new Float64Array(CELLS).fill(Infinity), prev = new Int32Array(CELLS).fill(-1), done = new Uint8Array(CELLS);
+  cost[from] = 0;
+  for (;;) {
+    let a = -1, best = Infinity;
+    for (let p = 0; p < CELLS; p++) if (!done[p] && cost[p] < best) { best = cost[p]; a = p; }
+    if (a < 0 || a === to) break;
+    done[a] = 1;
+    const ai = Math.floor(a / NLON), aj = a % NLON;
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      const i = ai + di, j = aj + dj;
+      if ((!di && !dj) || i < 0 || i >= NLAT || j < 0 || j >= NLON) continue;
+      const b = i * NLON + j;
+      if (done[b] || !isSea(b)) continue;
+      if (di && dj && (!isSea(ai * NLON + j) || !isSea(i * NLON + aj))) continue;      // no cutting a corner over land
+      const dx = dj * Math.cos((6.5 + ai) * Math.PI / 180), len = Math.hypot(dx, di);
+      let pen = 0;
+      if (wind) {
+        const u = wind.arr[wind.o + 2 * CELLS + b], v = wind.arr[wind.o + 3 * CELLS + b], sp = Math.hypot(u, v);
+        const head = -(u * dx + v * di) / len;                                           // positive when the wind blows against the ship
+        pen = Math.pow(Math.max(0, sp - 6) / 4, 2) + 0.5 * Math.max(0, head) / 8;
+      }
+      const c = cost[a] + len * (1 + pen);
+      if (c < cost[b]) { cost[b] = c; prev[b] = a; }
+    }
+  }
+  if (!isFinite(cost[to])) return null;
+  const cells = [];
+  for (let p = to; p >= 0; p = prev[p]) cells.push(p);
+  return cells.reverse();
+}
+function pathStats(cells, arr, o) {
+  let km = 0, top = 0, strong = 0;
+  cells.forEach((p, k) => {
+    const sp = Math.hypot(arr[o + 2 * CELLS + p], arr[o + 3 * CELLS + p]);
+    if (sp > top) top = sp;
+    if (sp >= STRONG) strong++;
+    if (k) { const q = cells[k - 1], di = Math.floor(p / NLON) - Math.floor(q / NLON), dj = p % NLON - q % NLON; km += 111.2 * Math.hypot(dj * Math.cos((6.5 + Math.floor(q / NLON)) * Math.PI / 180), di); }
+  });
+  return { km, top, strong, n: cells.length };
+}
+function pathSegsOf(cells) {
+  const s = [];
+  for (let k = 1; k < cells.length; k++) s.push(cells[k - 1] % NLON + 1, Math.floor(cells[k - 1] / NLON) + 1, cells[k] % NLON + 1, Math.floor(cells[k] / NLON) + 1);
+  return s;
+}
+function specRoute() {
+  const R = S.run, t = S.day, o = t * STEP, f = FIELDS.find((x) => x.key === 'wind'), va = fieldAt(R.A, t, f);
+  const a = portCell(S.portA), b = portCell(S.portB), names = PORTS[S.portA][0] + ' to ' + PORTS[S.portB][0];
+  const short = a >= 0 && b >= 0 && a !== b ? seaPath(a, b, null) : null, smart = short ? seaPath(a, b, { arr: R.A, o }) : null;
+  const setFacts = (rows, hint) => { $('changeTitle').textContent = 'Sea route: ' + names + ', ' + dayText(t); $('changeBody').innerHTML = rows; $('changeHint').textContent = hint; };
+  const limits = 'Uses the wind of the chosen day only: no waves, tides, currents, depth or shipping lanes. A square-by-square sketch, not a navigable route.';
+  const ports = [a, b].filter((p) => p >= 0).map((p, k) => ({ p, name: PORTS[k ? S.portB : S.portA][0] }));
+  const lines = short ? [{ segs: pathSegsOf(short), color: 'rgba(255,255,255,0.95)', width: 1.6, dash: [5, 5] }, { segs: pathSegsOf(smart), color: '#ffd43b', width: 2.4 }] : null;
+  const mapA = { title: 'Wind forecast and the two routes', sub: 'Wind speed, m/s, ' + dayText(t), vals: va, scale: f.scale, tick,
+    honest: 'Yellow: the wind-aware route. Dashed white: the shortest route. ' + limits, opts: { wind: { arr: R.A, o }, lines, ports } };
+  const F = S.fut && S.fut.forRun === R.id ? S.fut : null;
+  let mapB, mapC, cnt = null;
+  if (F) {
+    const fi = F.fi.wind, li = F.ladders.wind.levels.indexOf(10), T = F.T;
+    cnt = new Float32Array(CELLS);
+    for (let p = 0; p < CELLS; p++) cnt[p] = F.counts.wind[(li * T + t) * CELLS + p];
+    mapB = { title: 'How many of the ' + F.runs + ' futures', sub: 'wind at least 10 m/s', vals: cnt, scale: COUNT_SCALE, tick,
+      honest: 'Scenario frequency, not a calibrated probability.', opts: { lines, ports } };
+    mapC = { title: 'A bad-case wind', sub: 'Wind speed, m/s', vals: F.high.subarray((fi * T + t) * CELLS, (fi * T + t + 1) * CELLS), scale: f.scale, tick,
+      honest: '45 of the 50 futures stay below this.', opts: { lines, ports } };
+  } else {
+    mapB = blank('How many of the 50 futures', 'wind at least 10 m/s', 'Running 50 futures', COUNT_SCALE);
+    mapC = blank('A bad-case wind', '', 'Running 50 futures', f.scale);
+  }
+  const facts = () => {
+    if (!short) { setFacts(fact(a === b ? 'Pick two different ports' : 'No sea path between these ports on this grid', ''), limits); return; }
+    const s1 = pathStats(short, R.A, o), s2 = pathStats(smart, R.A, o), same = short.length === smart.length && short.every((p, k) => p === smart[k]);
+    let h = fact('Shortest route', Math.round(s1.km / 10) * 10 + ' km', 'strongest wind ' + fmt(s1.top) + ' m/s, ' + s1.strong + ' squares at ' + STRONG + ' m/s or more', s1.strong ? 'no' : 'ok');
+    h += same ? fact('Wind-aware route', 'the same path', 'the shortest route is already the calmest on this day', 'ok')
+      : fact('Wind-aware route', Math.round(s2.km / 10) * 10 + ' km', 'strongest wind ' + fmt(s2.top) + ' m/s, ' + s2.strong + ' squares at ' + STRONG + ' m/s or more. ' +
+        signed((s2.km / s1.km - 1) * 100, 0) + '% distance', s2.strong < s1.strong || s2.top < s1.top ? 'ok' : '');
+    if (cnt) { let risky = 0; for (const p of smart) if (cnt[p] >= 25) risky++; h += fact('Squares on the wind-aware route where 25 or more futures have strong wind', risky + ' of ' + smart.length, '', risky ? 'warnc' : 'ok'); }
+    setFacts(h, limits + ' Strong wind line: Beaufort force 6, ' + STRONG + ' m/s.');
+  };
+  return { maps: [mapA, mapB, mapC], tip: (p) => [['Wind', fmt(va[p]) + ' m/s']].concat(cnt ? [['Futures with strong wind', cnt[p] + ' of 50']] : []), facts };
+}
+
 /* Alerts tab: plain rules checked in each of the 50 futures, shown per role. Thresholds and sources come from the backend. */
 const DAY_SCALE = makeScale([0, 1, 2, 3, 4, 5, 6, 8, 10], PAL.wet);
-function alertWord(n) { return n >= 40 ? ['Act', 'no'] : n >= 25 ? ['Prepare', 'warnc'] : n >= 10 ? ['Watch', ''] : ['No alert', 'ok']; }
+function alertWord(n, good) {
+  if (good) return n >= 40 ? ['Likely', 'ok'] : n >= 25 ? ['Possible', ''] : ['Unlikely', 'warnc'];
+  return n >= 40 ? ['Act', 'no'] : n >= 25 ? ['Prepare', 'warnc'] : n >= 10 ? ['Watch', ''] : ['No alert', 'ok'];
+}
 function specAlerts() {
   const R = S.run, AL = S.alerts, t = S.day;
   const setFacts = (rows, hint) => { $('changeTitle').textContent = 'Alerts ' + placeText(S.sel.i, S.sel.j); $('changeBody').innerHTML = rows; $('changeHint').textContent = hint; };
@@ -546,18 +669,20 @@ function specAlerts() {
   const tip = (p) => keys.map((k) => [role.lines[k], AL.rules[k].applies[p] ? AL.rules[k].count[p] + ' of ' + AL.runs : 'does not apply here']);
   const facts = () => {
     const p = S.sel.i * NLON + S.sel.j;
-    let h = '';
+    let h = '', risk = -1;
     for (const k of keys) {
-      const r = AL.rules[k], n = r.count[p], w = alertWord(n);
+      const r = AL.rules[k], n = r.count[p], w = alertWord(n, r.good);
+      if (r.applies[p] && !r.good) risk = Math.max(risk, Math.round(n / AL.runs * 10));
       if (!r.applies[p]) { h += fact(role.lines[k], 'does not apply here', 'this square is not ' + (r.where === 'sea' ? 'sea' : r.where === 'hills' ? 'hill country' : 'land')); continue; }
       const split = n >= 13 && n <= 37 ? ' The futures are split, so treat this as low confidence.' : '';
       h += fact(role.lines[k], w[0] + ': ' + n + ' of ' + AL.runs, n ? 'starts around day +' + r.when[p] : 'no future shows it', w[1]);
-      if (n >= 10) {
+      if (n >= 10 && !r.good) {
         const fr = FIELDS.find((x) => x.key === r.field), d = Math.max(1, r.when[p]);
         h += fact('Why: ' + n + ' of ' + AL.runs + ' futures show ' + r.says + '. The plain forecast for day +' + d + ' is ' + fmt(fr.get(R.A, d * STEP, p)) + ' ' + fr.unit + '.' + split, '') +
           fact('What to do: ' + role.acts[k], '');
       }
     }
+    if (risk >= 0) h = fact('Risk score for the ' + role.name.toLowerCase(), risk + ' of 10', 'ten times the largest share of futures in which an alert rule fires', risk >= 8 ? 'no' : risk >= 5 ? 'warnc' : 'ok') + h;
     const u = AL.unusual;
     h += fact('How unusual is the start day', 'more than ' + Math.floor(u * 100) + '% of training days', u >= 0.99 ? 'Never seen before in training: trust everything here less.' : '', u >= 0.99 ? 'no' : '');
     setFacts(h, 'Scenario frequency, not a calibrated probability. A regional indicator at 100 km: it does not replace official warnings.');
@@ -582,7 +707,7 @@ async function ensureAlerts() {
 function render() {
   const R = S.run;
   if (!R) return;
-  const spec = S.tab === 'futures' ? specFutures() : S.tab === 'finder' ? specFinder() : S.tab === 'alerts' ? specAlerts() : specCompare();
+  const spec = S.tab === 'futures' ? specFutures() : S.tab === 'finder' ? specFinder() : S.tab === 'alerts' ? specAlerts() : S.tab === 'route' ? specRoute() : specCompare();
   S.spec = spec;
   ['mapA', 'mapB', 'mapC'].forEach((id, k) => {
     const P = PANELS[id], m = spec.maps[k];
@@ -598,7 +723,7 @@ function render() {
   drawTools();
   drawPlace();
   spec.facts();
-  if (S.tab === 'futures' || (S.tab === 'whatif' && S.veilOn && R.B)) ensureFutures();
+  if (S.tab === 'futures' || S.tab === 'route' || (S.tab === 'whatif' && S.veilOn && R.B)) ensureFutures();
   if (S.tab === 'futures') ensurePlace();
   if (S.tab === 'finder') ensureFinder();
   if (S.tab === 'alerts') ensureAlerts();
@@ -641,7 +766,7 @@ async function ensurePlace() {
   if (F.placeBusy === p) F.placeBusy = null;
 }
 async function ensureFinder() {
-  if (S.day === 0) return;
+  if (S.day === 0 || S.field.local) return;
   const key = finderKey();
   if ((S.find && S.find.key === key) || S.findBusy === key || S.findFail === key) return;
   S.findBusy = key;
@@ -659,7 +784,7 @@ async function ensureFinder() {
 /* ---------- the row of controls under the tabs ---------- */
 function drawTools() {
   const f = S.field, F = S.fut, lad = F && F.ladders[f.key];
-  const sig = [S.tab, f.key, lad ? F.id : 0, S.veilOn, S.findSize, S.findSign, S.level[f.key], S.role, S.alerts ? 1 : 0].join('|');
+  const sig = [S.tab, f.key, lad ? F.id : 0, S.veilOn, S.findSize, S.findSign, S.level[f.key], S.role, S.alerts ? 1 : 0, S.portA, S.portB].join('|');
   if (sig === S.toolsSig) return;
   S.toolsSig = sig;
   let h = '';
@@ -674,6 +799,10 @@ function drawTools() {
         (lad.sign === '<=' ? 'at most ' : 'at least ') + lv + ' ' + f.unit + '</option>').join('') + '</select>';
     }
     h += '<span>Click a square to see all 50 futures for that place in the chart below.</span>';
+  } else if (S.tab === 'route') {
+    const opts = (sel) => PORTS.map((pt, k) => '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + pt[0] + '</option>').join('');
+    h = '<span>From</span><select id="portA">' + opts(S.portA) + '</select><span>to</span><select id="portB">' + opts(S.portB) + '</select>' +
+      '<span>The day slider sets the sailing day. The route avoids strong wind and headwind.</span>';
   } else if (S.tab === 'alerts') {
     h = '<span>Show alerts for</span>';
     if (S.alerts) h += '<select id="role">' + S.alerts.roles.map((r, k) => '<option value="' + k + '"' + (k === S.role ? ' selected' : '') + '>' + r.name + '</option>').join('') + '</select>';
@@ -700,7 +829,7 @@ function drawPlace() {
   for (let t = 0; t <= n; t++) a.push(f.get(R.A, t * STEP, p));
   if (src) for (let t = 0; t <= bn; t++) b.push(f.get(src, t * STEP, p));
   const F = S.fut;
-  if (fu && F && F.forRun === R.id && F.place && F.place.p === p) {
+  if (fu && F && F.forRun === R.id && F.place && F.place.p === p && !f.local) {
     const fi = F.fi[f.key], m = F.place.base;
     for (let k = 1; k < F.runs; k++) { const g = []; for (let t = 0; t < F.T; t++) g.push(m[(k * F.T + t) * 7 + fi]); ghosts.push(g); }
   }
@@ -848,6 +977,23 @@ async function runProof() {
   } catch (e) { /* the card keeps its last state */ }
   $('proofGo').disabled = false;
   drawProof();
+}
+function drawExam() {
+  const el = $('examBody');
+  if (!S.exam) { el.innerHTML = ''; return; }
+  if (S.exam === 'busy') { el.innerHTML = fact('Running the physics exam', ''); return; }
+  const pass = S.exam.filter((r) => r.ok).length;
+  let h = fact('Physics exam on this start day', pass + ' of ' + S.exam.length + ' passed', 'failed rows are shown, not hidden', pass === S.exam.length ? 'ok' : 'warnc'), g = '';
+  for (const r of S.exam) {
+    if (r.group !== g) { g = r.group; h += fact('<i>' + (g === 'Rules' ? 'Rules the model must obey' : 'Behaviour we hope for; it was never told these') + '</i>', ''); }
+    h += fact(r.name, r.ok ? 'pass' : 'fail', r.detail, r.ok ? 'ok' : 'no');
+  }
+  el.innerHTML = h;
+}
+async function runExam() {
+  S.exam = 'busy'; drawExam();
+  try { S.exam = (await post('api/exam', { date: S.date })).rows; } catch (e) { S.exam = null; banner('The physics exam did not run: ' + e.message); }
+  drawExam();
 }
 function drawScores() {
   const s = S.meta.scores;
@@ -1092,6 +1238,8 @@ function buildControls() {
     else if (t.id === 'fsize') S.findSize = +t.value;
     else if (t.id === 'fsign') S.findSign = +t.value;
     else if (t.id === 'role') S.role = +t.value;
+    else if (t.id === 'portA') S.portA = +t.value;
+    else if (t.id === 'portB') S.portB = +t.value;
     render();
   });
   $('brush').addEventListener('input', (e) => { S.brush = +e.target.value; $('brushOut').textContent = S.brush; });
@@ -1110,6 +1258,7 @@ function buildControls() {
   $('play').addEventListener('click', togglePlay);
   $('date').addEventListener('change', (e) => { if (e.target.value) setDate(e.target.value); });
   $('proofGo').addEventListener('click', () => { S.liveRetryAt = 0; runProof(); scheduleRun(0); });
+  $('examGo').addEventListener('click', runExam);
   $('placeCv').addEventListener('click', (e) => {
     if (!S.run) return;
     const r = e.target.getBoundingClientRect(), pw = r.width - CHART.L - CHART.R;
@@ -1130,7 +1279,8 @@ async function start() {
   try { m = await (await fetch('api/meta')).json(); }
   catch (e) { banner('The dashboard backend is not answering. Start it with: python dashboard/backend.py'); return; }
   S.meta = m;
-  COAST = contour(pad(dec(m.mask), false), 0.5);
+  LANDF = dec(m.mask);
+  COAST = contour(pad(LANDF, false), 0.5);
   $('chipModel').innerHTML = 'Local-view model, <b>' + m.params.toLocaleString('en-IN') + '</b> weights, reach <b>' + m.reach + '</b> squares a day';
   drawScores();
   if (m.error) { banner(m.error); return; }
@@ -1151,7 +1301,7 @@ async function start() {
   if (q.get('veil')) S.veilOn = true;
   if (q.get('shot')) document.body.classList.add('shot');
   if (q.get('role')) S.role = Math.max(0, Math.min(4, +q.get('role') || 0));
-  if (['forecast', 'futures', 'finder', 'alerts', 'whatif'].includes(q.get('tab'))) setTab(q.get('tab'), true);
+  if (['forecast', 'futures', 'finder', 'alerts', 'route', 'whatif'].includes(q.get('tab'))) setTab(q.get('tab'), true);
   await runModel();
   if (OFFICIAL[q.get('shock')]) official(q.get('shock'));
   runProof();

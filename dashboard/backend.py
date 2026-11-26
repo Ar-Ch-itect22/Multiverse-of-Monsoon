@@ -13,6 +13,7 @@ Routes (all under /api, plus the three static files of the page):
     POST /api/proof   speed, zero-change test, repeat test, and the inputs the page needs to test the graded server
     POST /api/futures 50 forecasts from nudged starts: how many cross a line, the range, the spread (see lab.py)
     POST /api/alerts  role alerts: plain rules checked in each of the 50 futures (see alerts.py)
+    POST /api/exam    physics exam: live checks of how the model behaves (see exam.py)
     POST /api/finder  Butterfly Finder: what an outcome depends on, with a rerun that tests it (see lab.py)
 """
 from __future__ import annotations
@@ -37,6 +38,7 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(HERE))
 import alerts as alert_rules  # noqa: E402
+import exam as physics_exam  # noqa: E402
 import lab  # noqa: E402
 from model.net import NC, NLAT, NLON, RAIN, T2M, T2M_MAX, T2M_MIN, Engine  # noqa: E402
 
@@ -288,10 +290,27 @@ async def alerts(request: Request):
         res = alert_rules.evaluate(m, normal, st[0], st[1] * 2000.0)
     rules = {}
     for k, r in alert_rules.RULES.items():
-        rules[k] = {"field": r["field"], "level": r["level"], "where": r["where"], "says": r["says"], "source": r["source"],
+        rules[k] = {"field": r["field"], "level": r["level"], "where": r["where"], "says": r["says"], "source": r["source"], "good": bool(r.get("good")),
                     "count": b64u8(res[k]["count"]), "when": b64u8(res[k]["when"]), "applies": b64u8(res[k]["applies"])}
     rank = float(np.searchsorted(UNUSUAL[1], UNUSUAL[0][SRC.index(date)]) / len(UNUSUAL[1]))
     return {"runs": N_RUNS, "roles": alert_rules.ROLES, "rules": rules, "unusual": rank}
+
+
+@app.post("/api/exam")
+async def exam(request: Request):
+    """Physics exam: live checks of how the model behaves on the chosen start day (see exam.py)."""
+    if SRC is None:
+        return fail("no starting weather on disk", 503)
+    try:
+        body = await request.json()
+        init, _, doy, _ = SRC.get(str(body["date"]), MAX_STEPS)
+    except Exception:  # noqa: BLE001
+        return fail("that day is not in the data", 404)
+    with LOCK:
+        t0 = time.perf_counter()
+        rows = physics_exam.run(ENGINE, init, sincos(doy))
+        ms = (time.perf_counter() - t0) * 1000.0
+    return {"rows": rows, "ms": ms}
 
 
 @app.post("/api/finder")
