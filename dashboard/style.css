@@ -151,3 +151,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
   .timeline { flex-wrap: wrap; }
   .daylabel { text-align: left; }
 }
+
+/* #shot=1 in the address shows only the three maps, for figures in the brief */
+.shot .top, .shot .side, .shot .tabs, .shot .tools, .shot .timeline, .shot .cards, .shot .honest { display: none; }
+.shot .layout { grid-template-columns: 1fr; padding: 8px; }

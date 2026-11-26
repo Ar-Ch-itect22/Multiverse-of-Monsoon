@@ -8,7 +8,8 @@ serve.py. Starting weather is read from data/india_climate_train.nc, the organiz
 
 Routes (all under /api, plus the three static files of the page):
     GET  /api/meta    grid, land mask, date range, saved scoreboard result
-    POST /api/run     one forecast, and the same forecast again with the user's change applied
+    POST /api/start   starting weather and the user's change; the page sends these to the graded server itself
+    POST /api/run     fallback when the graded server is off: the same forecast run here
     POST /api/proof   speed, zero-change test, repeat test, and the inputs the page needs to test the graded server
     POST /api/futures 50 forecasts from nudged starts: how many cross a line, the range, the spread (see lab.py)
     POST /api/finder  Butterfly Finder: what an outcome depends on, with a rerun that tests it (see lab.py)
@@ -114,6 +115,30 @@ def meta():
         return out
     out["date_min"], out["date_max"] = str(SRC.time[2]), str(SRC.time[-1])
     return out
+
+
+@app.post("/api/start")
+async def start(request: Request):
+    """Starting weather for a day, what really happened next, and the user's change as a plain delta. No model run here:
+    the page sends these to the graded server itself."""
+    if SRC is None:
+        return fail("no starting weather on disk", 503)
+    try:
+        body = await request.json()
+        date = str(body["date"])
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            raise ValueError("bad date")
+        steps = max(1, min(int(body.get("steps", MAX_STEPS)), MAX_STEPS))
+        init, truth, doy, tag = SRC.get(date, steps)
+        shock = body.get("shock")
+        delta = build_delta(init[-1], shock) if shock else None
+    except KeyError:
+        return fail("that day is not in the data", 404)
+    except Exception as e:  # noqa: BLE001
+        return fail(f"bad request: {e}")
+    return {"date": date, "doy": doy, "tag": tag, "steps": steps, "init_states": b64(init), "doy_sincos": sincos(doy),
+            "delta": None if delta is None else b64(delta), "truth": b64(truth), "truth_days": int(truth.shape[0]),
+            "graded_port": GRADED_PORT}
 
 
 @app.post("/api/run")

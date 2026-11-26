@@ -88,7 +88,7 @@ const S = {
   add: [0, 0, 0, 0, 0, 0], mul: [0, 0, 0, 0, 0, 0], knob: {}, official: null,
   tool: 'look', brush: 2, stroke: null, smooth: true, arrows: false, sel: { i: 13, j: 7 }, playing: null, proof: null,
   fut: null, futBusy: null, futFail: null, veilOn: false, level: { tp: 1, t2m: 1, wind: 2, msl: 1, tcwv: 2, u10: 1, v10: 1 },
-  find: null, findBusy: null, findFail: null, findSize: 1, findSign: 1, spec: null, toolsSig: null,
+  find: null, findBusy: null, findFail: null, findSize: 1, findSign: 1, spec: null, toolsSig: null, liveRetryAt: 0,
 };
 const PANELS = {};
 let COAST = [], runTimer = null;
@@ -482,7 +482,7 @@ function specFinder() {
   else if (!X) msg = S.findFail === finderKey() ? 'The Finder did not run.' : 'Tracing what this depends on';
   else if (X.flat) msg = 'Nothing to trace: the forecast here is flat, for example no rain at all. Pick another square, day or field.';
   if (msg) {
-    return { maps: [mapA, blank('What it depends on', 'start day', msg, SCORE_SCALE), blank('Proof: nudge that patch, rerun', '', msg, diffScale(f.floor, PAL[f.dpal]))],
+    return { maps: [mapA, blank('What it depends on', 'start day', msg, SCORE_SCALE), blank('Proof: nudge it and rerun', '', msg, diffScale(f.floor, PAL[f.dpal]))],
       tip: (p) => [['Forecast', fmt(va[p]) + ' ' + f.unit]], facts: () => setFacts(fact(msg, ''), '') };
   }
   const score = new Float32Array(CELLS);
@@ -495,7 +495,7 @@ function specFinder() {
     { title: 'What it depends on', sub: 'start day, % of the strongest square', vals: score, scale: SCORE_SCALE, tick,
       honest: 'Model sensitivity, not proven cause. Brighter squares of the start day matter more for the outcome. Yellow line: the patch we test. Dashed line: the furthest the model can reach.',
       opts: { box, lines: [patchLine, reach] } },
-    { title: 'Proof: nudge that patch, rerun', sub: 'difference on ' + dayText(t) + ', ' + f.unit, vals: X.diff, scale: dsc, tick: signedTick,
+    { title: 'Proof: nudge it and rerun', sub: 'difference on ' + dayText(t) + ', ' + f.unit, vals: X.diff, scale: dsc, tick: signedTick,
       honest: 'A real model rerun with the yellow patch nudged, minus the plain forecast. ' + (f.dpal === 'dWet' ? 'Brown: drier. Green: wetter.' : 'Blue: lower. Red: higher.'),
       opts: { box, lines: [patchLine] } },
   ];
@@ -740,7 +740,8 @@ function drawFacts(va, vb, vc, info) {
 /* ---------- proof card ---------- */
 function drawProof() {
   const R = S.run, pr = S.proof, same = (x) => (x === 0 ? 'identical' : 'differs by ' + x.toExponential(1));
-  let h = fact('10-day forecast on this processor', R ? R.baseMs.toFixed(0) + ' ms' : '...', 'the limit is 5000 ms');
+  let h = fact('10-day forecast on this processor', R ? R.baseMs.toFixed(0) + ' ms' : '...', (R && R.live ? 'measured inside the graded server. ' : '') + 'The limit is 5000 ms');
+  if (R) h += fact('Where the maps come from', R.live ? 'the graded server' : 'the dashboard backend', R.live ? 'every forecast and what-if is a live call to its graded route' : 'same model; start serve.py to go live', R.live ? 'ok' : 'no');
   if (pr) {
     h += fact('Zero change in, zero change out', same(pr.zero_change_max_diff), '', pr.zero_change_max_diff === 0 ? 'ok' : 'no') +
       fact('Same input twice', same(pr.repeat_max_diff), '', pr.repeat_max_diff === 0 ? 'ok' : 'no') +
@@ -757,16 +758,7 @@ async function gradedCheck(pr) {
   const base = 'http://127.0.0.1:' + pr.graded_port, post = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
   try {
     const health = await (await fetch(base + '/health', { ...post, body: '{}' })).json();
-    const flat = dec(pr.init_states), init = [];
-    for (let t = 0; t < 3; t++) {
-      const day = [];
-      for (let c = 0; c < NC; c++) {
-        const ch = [];
-        for (let i = 0; i < NLAT; i++) ch.push(Array.from(flat.subarray(((t * NC + c) * NLAT + i) * NLON, ((t * NC + c) * NLAT + i + 1) * NLON)));
-        day.push(ch);
-      }
-      init.push(day);
-    }
+    const init = nest(dec(pr.init_states), [3, NC, NLAT, NLON]);
     const t0 = performance.now();
     const res = await (await fetch(base + '/simulate', { ...post, body: JSON.stringify({ init_states: init, doy_sincos: pr.doy_sincos, steps: 10, perturbation: null }) })).json();
     const ms = performance.now() - t0, theirs = res.rollout.flat(3), ours = dec(pr.rollout);
@@ -907,35 +899,71 @@ function showTip(e, c) {
 
 /* ---------- running the model ---------- */
 function scheduleRun(ms) { clearTimeout(runTimer); runTimer = setTimeout(runModel, ms || 0); }
+function nest(flat, shape) {
+  if (shape.length === 1) return Array.from(flat);
+  const n = shape[0], size = flat.length / n, out = [];
+  for (let k = 0; k < n; k++) out.push(nest(flat.subarray(k * size, (k + 1) * size), shape.slice(1)));
+  return out;
+}
+// One call to the real graded server, exactly as the judge makes it.
+async function graded(port, init, sc, steps, pert) {
+  const r = await fetch('http://127.0.0.1:' + port + '/simulate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ init_states: init, doy_sincos: sc, steps, perturbation: pert }) });
+  if (!r.ok) throw new Error('the graded server answered ' + r.status);
+  return r.json();
+}
+/* The forecast and the what-if come live from the graded server's own route. The dashboard backend only supplies the
+   starting weather and turns the painted region into a change. If the graded server is not running, the backend runs
+   the same model itself and the page says so. */
 async function runModel() {
   const my = ++S.seq, on = hasShock();
   const body = { date: S.date, steps: S.meta.max_steps, shock: on ? { mask: Array.from(S.mask), add: S.add, mul: S.mul } : null };
-  let j;
+  let st, base, shocked = null, baseMs, shockMs = null, live = false;
   try {
-    const r = await fetch('api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    j = await r.json();
-    if (!r.ok) throw new Error(j.error || 'the run failed');
+    st = await post('api/start', body);
+    if (my !== S.seq) return;
+    if (Date.now() >= S.liveRetryAt) {
+      try {
+        const init = nest(dec(st.init_states), [3, NC, NLAT, NLON]);
+        const r1 = await graded(st.graded_port, init, st.doy_sincos, st.steps, null);
+        base = Float32Array.from(r1.rollout.flat(3)); baseMs = r1.inference_ms;
+        if (st.delta) {
+          const r2 = await graded(st.graded_port, init, st.doy_sincos, st.steps, nest(dec(st.delta), [NC, NLAT, NLON]));
+          shocked = Float32Array.from(r2.rollout.flat(3)); shockMs = r2.inference_ms;
+        }
+        live = true;
+      } catch (e) { S.liveRetryAt = Date.now() + 8000; shocked = null; shockMs = null; }
+    }
+    if (!live) {
+      const j = await post('api/run', body);
+      base = dec(j.base); shocked = j.shocked ? dec(j.shocked) : null; baseMs = j.base_ms; shockMs = j.shock_ms;
+    }
   } catch (e) { if (my === S.seq) banner('Could not run the model: ' + e.message); return; }
   if (my !== S.seq) return;
+  const n = st.steps;
+  if (base.length !== n * STEP) { banner('The model answer has the wrong size.'); return; }
   banner('');
-  const n = j.steps, init = dec(j.init), A = new Float32Array((n + 1) * STEP);
-  A.set(init, 0); A.set(dec(j.base), STEP);
+  const init = dec(st.init_states).subarray(2 * STEP, 3 * STEP), A = new Float32Array((n + 1) * STEP);
+  A.set(init, 0); A.set(base, STEP);
   let B = null;
-  if (j.shocked) {
-    const dl = dec(j.delta);
+  if (shocked) {
+    const dl = dec(st.delta);
     B = new Float32Array((n + 1) * STEP);
     for (let k = 0; k < STEP; k++) B[k] = init[k] + dl[k];
-    B.set(dec(j.shocked), STEP);
+    B.set(shocked, STEP);
   }
-  const T = new Float32Array((j.truth_days + 1) * STEP);
+  const T = new Float32Array((st.truth_days + 1) * STEP);
   T.set(init, 0);
-  if (j.truth_days) T.set(dec(j.truth), STEP);
-  S.run = { id: my, shock: body.shock, n, A, B, T, td: j.truth_days, baseMs: j.base_ms, shockMs: j.shock_ms, tag: j.tag, cache: {} };
+  if (st.truth_days) T.set(dec(st.truth), STEP);
+  S.run = { id: my, shock: body.shock, live, n, A, B, T, td: st.truth_days, baseMs, shockMs, tag: st.tag, cache: {} };
   if (S.day > n) S.day = n;
-  $('chipSpeed').innerHTML = '<b>' + j.base_ms.toFixed(0) + ' ms</b> for a ' + n + '-day forecast' + (j.shock_ms ? ', <b>' + j.shock_ms.toFixed(0) + ' ms</b> for the what-if' : '');
+  const sp = $('chipSpeed');
+  sp.className = 'chip ' + (live ? 'good' : 'warn');
+  sp.innerHTML = (live ? 'Live from the graded server: ' : 'Graded server is off, same model run by the dashboard: ') + '<b>' + baseMs.toFixed(0) + ' ms</b> for ' + n + ' days' +
+    (shockMs ? ', <b>' + shockMs.toFixed(0) + ' ms</b> for the what-if' : '');
   const yc = $('chipYear');
-  yc.className = 'chip ' + (j.tag === 'unseen' ? 'good' : 'warn');
-  yc.textContent = j.tag === 'unseen' ? 'The model never saw this year' : j.tag === 'tune' ? 'This year was used for tuning' : 'The model was trained on this year';
+  yc.className = 'chip ' + (st.tag === 'unseen' ? 'good' : 'warn');
+  yc.textContent = st.tag === 'unseen' ? 'The model never saw this year' : st.tag === 'tune' ? 'This year was used for tuning' : 'The model was trained on this year';
   render(); drawProof();
 }
 
@@ -1011,7 +1039,7 @@ function buildControls() {
   $('day').addEventListener('input', (e) => setDay(+e.target.value));
   $('play').addEventListener('click', togglePlay);
   $('date').addEventListener('change', (e) => { if (e.target.value) setDate(e.target.value); });
-  $('proofGo').addEventListener('click', runProof);
+  $('proofGo').addEventListener('click', () => { S.liveRetryAt = 0; runProof(); scheduleRun(0); });
   $('placeCv').addEventListener('click', (e) => {
     if (!S.run) return;
     const r = e.target.getBoundingClientRect(), pw = r.width - CHART.L - CHART.R;
@@ -1042,9 +1070,19 @@ async function start() {
   $('presets').innerHTML = PRESETS.map((p) => '<button class="preset" data-date="' + p.date + '">' + p.name + '<small>' + p.note + '</small></button>').join('');
   $('presets').addEventListener('click', (e) => { const b = e.target.closest('.preset'); if (b) setDate(b.dataset.date); });
   shockNote(0);
-  S.date = PRESETS[0].date; $('date').value = S.date;
-  $('presets').children[0].classList.add('on');
+  const q = new URLSearchParams(location.hash.slice(1)), want = q.get('date');
+  S.date = want && /^\d{4}-\d{2}-\d{2}$/.test(want) ? want : PRESETS[0].date; $('date').value = S.date;
+  [...$('presets').children].forEach((b) => b.classList.toggle('on', b.dataset.date === S.date));
+  const fk = FIELDS.findIndex((f) => f.key === q.get('field'));
+  if (fk >= 0) { S.field = FIELDS[fk]; [...$('fields').children].forEach((b, k) => b.classList.toggle('on', k === fk)); }
+  const sel = (q.get('sel') || '').split(',').map(Number);
+  if (sel.length === 2 && sel[0] >= 0 && sel[0] < NLAT && sel[1] >= 0 && sel[1] < NLON) S.sel = { i: sel[0], j: sel[1] };
+  if (q.get('day')) S.day = Math.max(0, Math.min(m.max_steps, +q.get('day') || 0));
+  if (q.get('veil')) S.veilOn = true;
+  if (q.get('shot')) document.body.classList.add('shot');
+  if (['forecast', 'futures', 'finder', 'whatif'].includes(q.get('tab'))) setTab(q.get('tab'), true);
   await runModel();
+  if (OFFICIAL[q.get('shock')]) official(q.get('shock'));
   runProof();
 }
 start();
