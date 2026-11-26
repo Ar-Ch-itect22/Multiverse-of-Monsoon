@@ -110,6 +110,20 @@ def fail(msg: str, code: int = 400):
     return JSONResponse(status_code=code, content={"error": msg})
 
 
+def rain_normal() -> list:
+    """Normal rain for each day of the year over the India box (land between 8 and 30 N, 70 and 90 E), from the
+    training years, smoothed over a month. The page compares the forecast with it to name the monsoon phase."""
+    if "rain_normal" not in CACHE:
+        lat, lon = 6.5 + np.arange(NLAT), 65.5 + np.arange(NLON)
+        box = ((lat >= 8) & (lat <= 30))[:, None] & ((lon >= 70) & (lon <= 90))[None, :] & (ENGINE.static[0].numpy() >= 0.5)
+        years = SRC.time.astype("datetime64[Y]").astype(int) + 1970
+        key = ((SRC.time - SRC.time.astype("datetime64[Y]")).astype(int) + 1) % 365
+        daily = SRC.data[:, RAIN][:, box].mean(axis=1)
+        raw = np.array([daily[(years <= 2018) & (key == k)].mean() for k in range(365)])
+        CACHE["rain_normal"] = [float(v) for v in sum(np.roll(raw, s) for s in range(-15, 16)) / 31.0]
+    return CACHE["rain_normal"]
+
+
 @app.get("/api/meta")
 def meta():
     st = ENGINE.static.numpy()
@@ -120,6 +134,7 @@ def meta():
         out["error"] = "Starting weather not found. Put india_climate_train.nc in the data folder and restart."
         return out
     out["date_min"], out["date_max"] = str(SRC.time[2]), str(SRC.time[-1])
+    out["rain_normal"] = rain_normal()
     return out
 
 

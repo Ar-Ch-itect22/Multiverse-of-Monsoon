@@ -95,7 +95,7 @@ const S = {
   tool: 'look', brush: 2, stroke: null, smooth: true, arrows: false, sel: { i: 13, j: 7 }, playing: null, proof: null,
   fut: null, futBusy: null, futFail: null, veilOn: false, level: { tp: 1, t2m: 1, wind: 2, msl: 1, tcwv: 2, u10: 1, v10: 1 },
   find: null, findBusy: null, findFail: null, findSize: 1, findSign: 1, spec: null, toolsSig: null, liveRetryAt: 0,
-  alerts: null, alertBusy: null, alertFail: null, role: 0, portA: 0, portB: 5, exam: null,
+  alerts: null, alertBusy: null, alertFail: null, role: 0, portA: 0, portB: 5, exam: null, sweep: null, sweepBusy: null, sweepOn: false, asked: null,
 };
 const PANELS = {};
 let COAST = [], LANDF = new Float32Array(CELLS), runTimer = null;
@@ -727,6 +727,8 @@ function render() {
   if (S.tab === 'futures') ensurePlace();
   if (S.tab === 'finder') ensureFinder();
   if (S.tab === 'alerts') ensureAlerts();
+  if (S.tab === 'whatif' && S.sweepOn) ensureSweep();
+  drawAsk();
 }
 
 /* ---------- the 50 futures and the Butterfly Finder: fetch when the current tab needs them ---------- */
@@ -781,17 +783,113 @@ async function ensureFinder() {
   render();
 }
 
+/* ---------- strength sweep (What-if tab): the same change at half, one and a half, and double strength ---------- */
+const SWEEP = [0.5, 1.5, 2];
+async function ensureSweep() {
+  const R = S.run;
+  if (!R.B || !R.live || (S.sweep && S.sweep.forRun === R.id) || S.sweepBusy === R.id) return;
+  S.sweepBusy = R.id;
+  try {
+    const init = nest(dec(R.st.init_states), [3, NC, NLAT, NLON]), d = dec(R.st.delta), runs = [];
+    for (const k of SWEEP) {
+      const r = await graded(R.st.graded_port, init, R.st.doy_sincos, R.n, nest(d.map((v) => v * k), [NC, NLAT, NLON]));
+      runs.push(Float32Array.from(r.rollout.flat(3)));
+    }
+    if (S.run.id === R.id) S.sweep = { forRun: R.id, runs };
+  } catch (e) { /* the rows simply do not appear */ }
+  if (S.sweepBusy === R.id) S.sweepBusy = null;
+  render();
+}
+function sweepRows(f) {
+  const R = S.run, sw = S.sweep, p = S.sel.i * NLON + S.sel.j, t = S.day;
+  if (!S.sweepOn || t === 0) return '';
+  if (!R.live) return fact('Strength sweep', 'needs the graded server', 'start serve.py so the page can call it');
+  if (!sw || sw.forRun !== R.id) return fact('Strength sweep', 'running');
+  const size = (arr, off) => { let s = 0; for (let q = 0; q < CELLS; q++) s += Math.abs(f.get(arr, off, q) - f.get(R.A, t * STEP, q)); return s / CELLS; };
+  const one = size(R.B, t * STEP), parts = SWEEP.map((k, n) => [k, size(sw.runs[n], (t - 1) * STEP)]);
+  const all = [[0.5, parts[0][1]], [1, one], [1.5, parts[1][1]], [2, parts[2][1]]];
+  const straight = one > 0 && all.every(([k, v]) => Math.abs(v / one - k) <= 0.25 * k);
+  return fact('Strength sweep: average change across the map', all.map(([k, v]) => k + 'x: ' + fmt(v, 2)).join(', '),
+    f.unit + '. ' + (straight ? 'Close to proportional: double the change, double the response.' : 'Not proportional: the response does not simply scale with the change.'), straight ? 'ok' : 'warnc') +
+    fact('Strength sweep: change ' + placeText(S.sel.i, S.sel.j), [[0.5, sw.runs[0], t - 1], [1, R.B, t], [1.5, sw.runs[1], t - 1], [2, sw.runs[2], t - 1]]
+      .map(([k, arr, d]) => k + 'x: ' + signed(f.get(arr, d * STEP, p) - f.get(R.A, t * STEP, p), 2)).join(', '), f.unit);
+}
+// How far the change has travelled on each day: the furthest square, counted from the painted region, that changed noticeably.
+function spreadRow(f) {
+  const R = S.run, out = [];
+  for (let t = 1; t <= R.n; t++) {
+    let far = 0;
+    for (let p = 0; p < CELLS; p++) if (S.dist[p] > far && Math.abs(f.get(R.B, t * STEP, p) - f.get(R.A, t * STEP, p)) > f.notice) far = S.dist[p];
+    out.push(far);
+  }
+  return fact('Furthest changed square, day 1 to day ' + R.n, out.join(', '), 'squares from your region. The model can carry a change ' + S.meta.reach + ' squares a day at most.');
+}
+
+/* ---------- monsoon phase (Forecast tab): rain over the India box against normal for the date ---------- */
+function inIndiaBox(p) { const la = latOf(Math.floor(p / NLON)), lo = lonOf(p % NLON); return LANDF[p] >= 0.5 && la >= 8 && la <= 30 && lo >= 70 && lo <= 90; }
+function phaseRows() {
+  const R = S.run, nrm = S.meta.rain_normal;
+  if (!nrm) return '';
+  const [y, m, d] = S.date.split('-').map(Number), words = [];
+  let cur = null;
+  for (let t = 1; t <= R.n; t++) {
+    const dt = Date.UTC(y, m - 1, d + t), doy = Math.round((dt - Date.UTC(new Date(dt).getUTCFullYear(), 0, 1)) / 864e5) + 1, normal = nrm[doy % 365];
+    let s = 0, n = 0;
+    for (let p = 0; p < CELLS; p++) if (inIndiaBox(p)) { s += R.A[t * STEP + CELLS + p]; n++; }
+    const rain = s / n, word = normal < 2 ? 'outside the rainy season' : rain >= 1.2 * normal ? 'active' : rain <= 0.8 * normal ? 'weak' : 'near normal';
+    words.push(word);
+    if (t === Math.max(1, S.day)) cur = { rain, normal, word };
+  }
+  const runs = [];
+  words.forEach((w, k) => { const last = runs[runs.length - 1]; if (last && last.w === w) last.b = k + 1; else runs.push({ w, a: k + 1, b: k + 1 }); });
+  return fact('Monsoon over the India box, day +' + Math.max(1, S.day), cur.word, fmt(cur.rain) + ' mm/day against a normal of ' + fmt(cur.normal) + ' for the date',
+    cur.word === 'active' ? 'ok' : cur.word === 'weak' ? 'warnc' : '') +
+    fact('Next ' + R.n + ' days', '', '') .replace('<span>Next ' + R.n + ' days</span>', '<span>Next ' + R.n + ' days: ' + runs.map((r) => r.w + (r.a === r.b ? ' on day ' + r.a : ' on days ' + r.a + ' to ' + r.b)).join(', ') +
+      '. Team rule: 20% above or below normal rain over land between 8 and 30 N, 70 and 90 E.</span>');
+}
+
+/* ---------- ask box: a template answer built from the numbers on the page. Not a chatbot. ---------- */
+function ask(q) {
+  const s = q.toLowerCase();
+  const key = /rain|wet|dry|shower|monsoon|flood/.test(s) ? 'tp' : /hot|heat|temp|cold|cool|warm/.test(s) ? 't2m' : /wind|breez|gust|storm|cyclone/.test(s) ? 'wind' :
+    /pressure/.test(s) ? 'msl' : /moist|humid/.test(s) ? 'tcwv' : null;
+  const alias = { bangalore: 'Bengaluru', bombay: 'Mumbai', calcutta: 'Kolkata', madras: 'Chennai', vizag: 'Visakhapatnam', trivandrum: 'Thiruvananthapuram' };
+  let city = CITIES.find((c) => s.includes(c[0].toLowerCase()));
+  for (const a in alias) if (!city && s.includes(a)) city = CITIES.find((c) => c[0] === alias[a]);
+  const m = s.match(/day\s*\+?\s*(\d+)/) || s.match(/(\d+)\s*days?/);
+  const day = m ? +m[1] : /day after tomorrow/.test(s) ? 2 : /tomorrow/.test(s) ? 1 : /week/.test(s) ? 7 : null;
+  if (key) { S.field = FIELDS.find((f) => f.key === key); [...$('fields').children].forEach((b, k) => b.classList.toggle('on', FIELDS[k] === S.field)); }
+  if (city) S.sel = { i: Math.max(0, Math.min(NLAT - 1, Math.floor(city[1] - 6))), j: Math.max(0, Math.min(NLON - 1, Math.floor(city[2] - 65))) };
+  if (day !== null) S.day = Math.max(1, Math.min(S.run.n, day)); else if (S.day === 0) S.day = 1;
+  S.asked = { q, understood: (key ? '' : 'No field found, so I kept ' + S.field.name.toLowerCase() + '. ') + (city ? '' : 'No place found, so I kept the selected square. ') };
+  ensureFutures(); render();
+}
+function drawAsk() {
+  const el = $('askOut');
+  if (!S.asked || !S.run) { el.hidden = true; return; }
+  const R = S.run, f = S.field, p = S.sel.i * NLON + S.sel.j, t = S.day, F = S.fut;
+  let txt = S.asked.understood + f.name + ' ' + placeText(S.sel.i, S.sel.j) + ' on ' + dayText(t) + ' (' + dayDate(t) + '): the plain forecast is ' + fmt(f.get(R.A, t * STEP, p)) + ' ' + f.unit + '.';
+  if (F && F.forRun === R.id && !f.local) {
+    const fi = F.fi[f.key], lad = F.ladders[f.key], li = S.level[f.key], o = (fi * F.T + t) * CELLS;
+    txt += ' ' + F.counts[f.key][(li * F.T + t) * CELLS + p] + ' of ' + F.runs + ' futures give ' + f.name.toLowerCase() + (lad.sign === '<=' ? ' at most ' : ' at least ') + lad.levels[li] + ' ' + f.unit +
+      '. 9 in 10 futures fall between ' + fmt(F.low[o + p]) + ' and ' + fmt(F.high[o + p]) + '.';
+  } else if (!f.local) txt += ' Running 50 futures for the range.';
+  el.hidden = false;
+  el.textContent = txt + ' This is a template answer built from the numbers on this page. It is not a chatbot.';
+}
+
 /* ---------- the row of controls under the tabs ---------- */
 function drawTools() {
   const f = S.field, F = S.fut, lad = F && F.ladders[f.key];
-  const sig = [S.tab, f.key, lad ? F.id : 0, S.veilOn, S.findSize, S.findSign, S.level[f.key], S.role, S.alerts ? 1 : 0, S.portA, S.portB].join('|');
+  const sig = [S.tab, f.key, lad ? F.id : 0, S.veilOn, S.findSize, S.findSign, S.level[f.key], S.role, S.alerts ? 1 : 0, S.portA, S.portB, S.sweepOn].join('|');
   if (sig === S.toolsSig) return;
   S.toolsSig = sig;
   let h = '';
   if (S.tab === 'forecast') h = '<span>Left: the model. Middle: the recorded weather. Right: the gap between the two.</span>';
   else if (S.tab === 'whatif') {
     h = '<label class="check"><input type="checkbox" id="veil"' + (S.veilOn ? ' checked' : '') + '> Test my change against 50 futures</label>' +
-      '<span>Greys out squares where the futures do not agree which way your change pushes.</span>';
+      '<label class="check"><input type="checkbox" id="sweep"' + (S.sweepOn ? ' checked' : '') + '> Strength sweep</label>' +
+      '<span>The first greys out squares where the futures disagree. The second reruns your change at half, 1.5 and 2 times the strength.</span>';
   } else if (S.tab === 'futures') {
     h = '<span>Count the futures with ' + f.name.toLowerCase() + '</span>';
     if (lad) {
@@ -907,7 +1005,7 @@ function drawFacts(va, vb, vc, info) {
     body.innerHTML = fact('Average miss, model', fmt(em, 2) + ' ' + f.unit) +
       fact('Average miss, "same as the start day" guess', fmt(ep, 2) + ' ' + f.unit) +
       fact('Model against that guess', Math.abs(gain).toFixed(0) + '% ' + (gain >= 0 ? 'closer' : 'further off'), '', gain >= 0 ? 'ok' : 'no') +
-      fact('Worst miss', signed(worst) + ' ' + f.unit, placeText(Math.floor(wp / NLON), wp % NLON));
+      fact('Worst miss', signed(worst) + ' ' + f.unit, placeText(Math.floor(wp / NLON), wp % NLON)) + phaseRows();
     hint.textContent = f.name + ', ' + dayText(S.day) + ', this one case only. The scoreboard in the proof panel covers two full years.';
     return;
   }
@@ -931,7 +1029,8 @@ function drawFacts(va, vb, vc, info) {
     fact('Biggest fall', signed(Math.min(mn, 0), 2) + ' ' + f.unit, mn < -f.notice ? placeText(Math.floor(pn / NLON), pn % NLON) : 'none worth noting') +
     fact('Squares that changed by more than ' + f.notice + ' ' + f.unit, cnt + ' of ' + CELLS) +
     fact('Furthest such square from your region', far + ' squares', 'the model can carry it ' + lim + ' at most by ' + dayText(S.day)) +
-    (info ? fact('Coloured squares where 45 or more of the 50 futures agree', info.solid + ' of ' + info.shown, '', info.shown && info.solid >= info.shown * 0.5 ? 'ok' : '') : '');
+    (info ? fact('Coloured squares where 45 or more of the 50 futures agree', info.solid + ' of ' + info.shown, '', info.shown && info.solid >= info.shown * 0.5 ? 'ok' : '') : '') +
+    spreadRow(f) + sweepRows(f);
   hint.textContent = f.name + ', ' + dayText(S.day) + '. Modelled what-if, not proof of real-world effect.';
 }
 
@@ -1170,7 +1269,7 @@ async function runModel() {
   const T = new Float32Array((st.truth_days + 1) * STEP);
   T.set(init, 0);
   if (st.truth_days) T.set(dec(st.truth), STEP);
-  S.run = { id: my, shock: body.shock, live, n, A, B, T, td: st.truth_days, baseMs, shockMs, tag: st.tag, cache: {} };
+  S.run = { id: my, shock: body.shock, st, live, n, A, B, T, td: st.truth_days, baseMs, shockMs, tag: st.tag, cache: {} };
   if (S.day > n) S.day = n;
   const sp = $('chipSpeed');
   sp.className = 'chip ' + (live ? 'good' : 'warn');
@@ -1234,6 +1333,7 @@ function buildControls() {
   $('tabTools').addEventListener('change', (e) => {
     const t = e.target;
     if (t.id === 'veil') S.veilOn = t.checked;
+    else if (t.id === 'sweep') S.sweepOn = t.checked;
     else if (t.id === 'level') S.level[S.field.key] = +t.value;
     else if (t.id === 'fsize') S.findSize = +t.value;
     else if (t.id === 'fsign') S.findSign = +t.value;
@@ -1259,6 +1359,7 @@ function buildControls() {
   $('date').addEventListener('change', (e) => { if (e.target.value) setDate(e.target.value); });
   $('proofGo').addEventListener('click', () => { S.liveRetryAt = 0; runProof(); scheduleRun(0); });
   $('examGo').addEventListener('click', runExam);
+  $('ask').addEventListener('submit', (e) => { e.preventDefault(); const q = $('askIn').value.trim(); if (q && S.run) ask(q); });
   $('placeCv').addEventListener('click', (e) => {
     if (!S.run) return;
     const r = e.target.getBoundingClientRect(), pw = r.width - CHART.L - CHART.R;

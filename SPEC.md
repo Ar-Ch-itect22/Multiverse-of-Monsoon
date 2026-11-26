@@ -45,6 +45,10 @@ watch what happens.
 
 ## Feature list, in build order
 
+Status on 27 Nov, 4:30 AM: every row below is built and on the page. The crop advisor is the Farmer role in the Alerts
+tab. The moisture corridor is the "Moisture flow" field and the ventilation score is the "Still air score" field.
+Alert thresholds and their sources live in `dashboard/alerts.py`.
+
 | Tier | Feature | Honest label shown on screen |
 | --- | --- | --- |
 | 1 | Forecast map with day slider, six fields | Model forecast, about 100 km squares, daily |

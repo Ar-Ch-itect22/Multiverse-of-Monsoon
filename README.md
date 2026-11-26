@@ -10,7 +10,7 @@ The 2-page brief is in [`docs/VARUNA_brief.pdf`](docs/VARUNA_brief.pdf).
 - **A forecast model.** It takes the last 3 days on a 32 by 36 grid and rolls forward day by day. 623,334 weights,
   2.5 MB, about 75 ms for 10 days on a laptop processor. No internet, no outside weather data.
 - **The graded server.** `serve.py` with `POST /health` and `POST /simulate`, as the contract asks.
-- **A dashboard.** One map, five tabs: Forecast, 50 futures, Butterfly Finder, Alerts, What-if. Every forecast and
+- **A dashboard.** One map, six tabs: Forecast, 50 futures, Butterfly Finder, Alerts, Sea route, What-if. Every forecast and
   what-if on it is a live call to the graded server's own route.
 
 ## Our own measurements
@@ -75,7 +75,11 @@ The brief has the full design, the measured results and the failure modes.
 | 50 futures | How sure are we? | 50 runs from nudged starts: how many cross a line, a bad case, where they split |
 | Butterfly Finder | What does it depend on? | Which squares of the start day an outcome depends on, tested with a real rerun |
 | Alerts | Who should act? | Plain rules for five roles, checked in each of the 50 futures |
-| What-if | What if I change it? | Paint a region, set a change, see with, without and the difference |
+| Sea route | Which way around the wind? | The shortest path against a wind-aware path between two ports. Wind only: no waves, tides, depth or shipping lanes |
+| What-if | What if I change it? | Paint a region, set a change, see with, without and the difference. Options: test against 50 futures, strength sweep |
+
+Also on the page: a physics exam (12 live checks; fails are shown), a monsoon phase line on the Forecast tab, two extra
+map fields (moisture flow, still air score), and an ask box that gives template answers from the numbers on screen.
 
 Links can open a view directly, for example `http://127.0.0.1:8050/#tab=finder&day=4&field=tp&sel=16,23`.
 
@@ -86,7 +90,7 @@ Links can open a view directly, for example `http://127.0.0.1:8050/#tab=finder&d
 | `serve.py` | The graded server. Two routes only. Imports only `model/`. |
 | `model/` | The network, its weights, and a 365-day table of normal weather. |
 | `training/` | Training, the fade fit, a local scoreboard that uses the organizers' scoring code, and the 50-futures check. |
-| `dashboard/` | The map: `index.html`, `app.js`, `style.css`, and `backend.py` on its own port. `lab.py` holds the 50 futures and the Butterfly Finder, `alerts.py` the alert rules and their sources. |
+| `dashboard/` | The map: `index.html`, `app.js`, `style.css`, and `backend.py` on its own port. `lab.py` holds the 50 futures and the Butterfly Finder, `alerts.py` the alert rules and their sources, `exam.py` the physics exam. |
 | `docs/` | The 2-page brief (`VARUNA_brief.pdf`) and its source. |
 | `SPEC.md` | The rules every teammate and AI tool follows. Read it before writing code. |
 

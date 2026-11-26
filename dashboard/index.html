@@ -68,6 +68,11 @@
   </aside>
 
   <main class="main">
+    <form class="ask" id="ask">
+      <input id="askIn" type="text" autocomplete="off" placeholder="Ask in plain words, for example: rain near Kolkata on day 3" aria-label="Ask about the forecast">
+      <button class="btn small" type="submit">Ask</button>
+    </form>
+    <div class="askout" id="askOut" hidden></div>
     <div class="tabs" id="tabs">
       <button data-tab="forecast" class="on">Forecast<small>what is coming</small></button>
       <button data-tab="futures">50 futures<small>how sure are we</small></button>
