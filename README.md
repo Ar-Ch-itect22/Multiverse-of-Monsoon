@@ -23,6 +23,7 @@ Put the organizers' file `india_climate_train.nc` in a folder named `data/`. It 
 | Dashboard | `python dashboard/backend.py` | open http://127.0.0.1:8050 |
 | Train the model | `python training/train.py` | writes `model/varuna.pt` and `model/norm.npz` |
 | Score the model | `python training/scoreboard.py --save dashboard/scores.json` | prints our estimate of the 70 model points |
+| Check the 50 futures | `python training/calibrate_futures.py --years 2020 2021 --scales 1.0 --save dashboard/futures_check.json` | prints spread against real miss |
 
 The dashboard needs the data file for its starting weather. The graded server does not.
 

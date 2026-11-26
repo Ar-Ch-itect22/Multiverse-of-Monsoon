@@ -38,6 +38,9 @@ const PAL = {
   temp: ['#1e3a8a', '#2f66c4', '#5d9be0', '#a5c8ea', '#e9e4d8', '#f2c38a', '#ee9150', '#dc5a33', '#a8202b'],
   pres: ['#5b1a8c', '#7f3fb5', '#a877d6', '#d0b8ea', '#e9e4d8', '#f0cf9e', '#e9a85a', '#d97b23', '#a85208'],
   dWarm: ['#9fd4ff', '#4f9ee6', '#2a69b3', '#1b3c6b', '#161d2b', '#6e2a2c', '#b53e3c', '#e6604f', '#ffb0a0'],
+  count: ['#0e1726', '#2b1d1a', '#4a2618', '#703114', '#9a3f10', '#c4550f', '#e7761c', '#f6a94a', '#fde3a8'],
+  gold: ['#0e1726', '#2a2413', '#473913', '#6b5210', '#93700d', '#bd9110', '#e2b523', '#f6d860', '#fff6c8'],
+  mist: ['#0e1726', '#1a2a3a', '#27404f', '#365866', '#48727e', '#5f8e97', '#7fabb0', '#a8c9cb', '#dbe9e9'],
   dWet: ['#f6d49a', '#d39d4c', '#9c6c28', '#5c411c', '#161d2b', '#16493f', '#1f7c69', '#31b799', '#98f3da'],
 };
 
@@ -63,6 +66,8 @@ const FIELDS = [
     get: (a, o, p) => a[o + 3 * CELLS + p] },
 ];
 for (const f of FIELDS) f.scale = makeScale(f.breaks, PAL[f.pal]);
+const COUNT_SCALE = makeScale([0, 1, 5, 10, 20, 30, 40, 45, 50], PAL.count);       // how many of the 50 futures
+const SCORE_SCALE = makeScale([0, 2, 5, 10, 20, 35, 50, 75, 100], PAL.gold);       // importance, % of the strongest square
 
 // The change the user makes: delta = region * (add + mul * today's value), per model field.
 const KNOBS = [
@@ -82,6 +87,8 @@ const S = {
   mask: new Float32Array(CELLS), count: 0, dist: new Float32Array(CELLS).fill(99), maskSegs: [],
   add: [0, 0, 0, 0, 0, 0], mul: [0, 0, 0, 0, 0, 0], knob: {}, official: null,
   tool: 'look', brush: 2, stroke: null, smooth: true, arrows: false, sel: { i: 13, j: 7 }, playing: null, proof: null,
+  fut: null, futBusy: null, futFail: null, veilOn: false, level: { tp: 1, t2m: 1, wind: 2, msl: 1, tcwv: 2, u10: 1, v10: 1 },
+  find: null, findBusy: null, findFail: null, findSize: 1, findSign: 1, spec: null, toolsSig: null,
 };
 const PANELS = {};
 let COAST = [], runTimer = null;
@@ -91,6 +98,22 @@ function dec(b64) {
   const s = atob(b64), u = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
   return new Float32Array(u.buffer);
+}
+function decU8(b64) {
+  const s = atob(b64), u = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+  return u;
+}
+// squares between each square and the nearest of `cells`, counting diagonal steps as one (how the model spreads)
+function chebDist(cells) {
+  const d = new Float32Array(CELLS).fill(99);
+  for (let p = 0; p < CELLS; p++) {
+    const i = Math.floor(p / NLON), j = p % NLON;
+    let best = 99;
+    for (const q of cells) { const v = Math.max(Math.abs(Math.floor(q / NLON) - i), Math.abs(q % NLON - j)); if (v < best) best = v; }
+    d[p] = best;
+  }
+  return d;
 }
 function nice(x) { const e = Math.pow(10, Math.floor(Math.log10(x))), m = x / e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * e; }
 function fmt(v, d = 1) { const z = Math.abs(v) < Math.pow(10, -d) / 2 ? 0 : v; return z.toFixed(d).replace('-', '−'); }
@@ -219,6 +242,10 @@ function drawMap(P, vals, sc, o) {
     ctx.imageSmoothingEnabled = S.smooth; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(P.off, 0, 0, w, h);
   } else { ctx.fillStyle = '#0c1320'; ctx.fillRect(0, 0, w, h); }
+  if (o.veil) {
+    ctx.fillStyle = 'rgba(122,130,146,0.86)';
+    for (let i = 0; i < NLAT; i++) for (let j = 0; j < NLON; j++) if (o.veil[i * NLON + j]) ctx.fillRect(j * sx, (NLAT - 1 - i) * sy, sx + 0.5, sy + 0.5);
+  }
 
   // latitude and longitude lines every 5 degrees
   ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(8,12,20,0.22)'; ctx.beginPath();
@@ -237,6 +264,7 @@ function drawMap(P, vals, sc, o) {
     haloLine(ctx, S.maskSegs, sx, sy, '#ffd43b', 1.8);
   }
   if (o.reach > 0) haloLine(ctx, contour(pad(S.dist, false), o.reach + 0.5), sx, sy, 'rgba(255,255,255,0.9)', 1.2, [5, 5]);
+  if (o.lines) for (const l of o.lines) haloLine(ctx, l.segs, sx, sy, l.color, l.width, l.dash);
 
   if (o.wind) {
     const st = w < 420 ? 3 : 2, a = o.wind.arr, of = o.wind.o, lines = [];
@@ -270,6 +298,11 @@ function drawMap(P, vals, sc, o) {
       haloText(ctx, c[0], c[3] === 'l' ? x - 5 : x + 5, y, c[3] === 'l' ? 'right' : 'left');
     }
   }
+  if (o.box) {
+    const x = o.box.j0 * sx, y = (NLAT - 1 - o.box.i1) * sy, bw = (o.box.j1 - o.box.j0 + 1) * sx, bh = (o.box.i1 - o.box.i0 + 1) * sy;
+    ctx.strokeStyle = 'rgba(6,10,18,0.9)'; ctx.lineWidth = 4; ctx.strokeRect(x, y, bw, bh);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(x, y, bw, bh);
+  }
   if (o.sel) {
     const x = o.sel.j * sx, y = (NLAT - 1 - o.sel.i) * sy;
     ctx.strokeStyle = 'rgba(6,10,18,0.9)'; ctx.lineWidth = 3.5; ctx.strokeRect(x, y, sx, sy);
@@ -291,21 +324,21 @@ function drawLegend(P, sc, label) {
 /* ---------- what the three maps show ---------- */
 function view() {
   const R = S.run;
-  if (S.tab === 'forecast') {
-    return { A: R.A, B: S.day <= R.td ? R.T : null, sign: -1, last: R.td,
-      titles: ['Model forecast', 'What really happened', 'Where the forecast missed'], short: ['Forecast', 'Recorded'],
-      emptyB: 'No recorded weather for this day.' };
+  if (S.tab === 'whatif') {
+    return { A: R.A, B: R.B, sign: 1, last: R.n,
+      titles: ['Without your change', 'With your change', 'What your change did'], short: ['Without', 'With'],
+      emptyB: 'Paint a region on a map, or press an official shock on the left.' };
   }
-  return { A: R.A, B: R.B, sign: 1, last: R.n,
-    titles: ['Without your change', 'With your change', 'What your change did'], short: ['Without', 'With'],
-    emptyB: 'Paint a region on a map, or press an official shock on the left.' };
+  return { A: R.A, B: S.day <= R.td ? R.T : null, sign: -1, last: R.td,
+    titles: ['Model forecast', 'What really happened', 'Where the forecast missed'], short: ['Forecast', 'Recorded'],
+    emptyB: 'No recorded weather for this day.' };
 }
 
 // One fixed range per field for the difference map, so the change can be seen growing and fading across days.
 function diffMax(f) {
   const R = S.run, key = S.tab + ':' + f.key;
   if (R.cache[key]) return R.cache[key];
-  const fc = S.tab === 'forecast', B = fc ? R.T : R.B, last = fc ? R.td : R.n;
+  const fc = S.tab !== 'whatif', B = fc ? R.T : R.B, last = fc ? R.td : R.n;
   let m = 0;
   if (B && last > 0) {                             // ignore the few most extreme squares so one of them does not flatten the map
     const all = new Float32Array(last * CELLS);
@@ -314,51 +347,275 @@ function diffMax(f) {
   }
   return (R.cache[key] = nice(Math.max(m, f.floor)));
 }
+function fieldAt(arr, t, f) {
+  const v = new Float32Array(CELLS), o = t * STEP;
+  for (let p = 0; p < CELLS; p++) v[p] = f.get(arr, o, p);
+  return v;
+}
+function windOpt(arr, f) {
+  return arr && (S.arrows || f.key === 'wind' || f.key === 'u10' || f.key === 'v10') ? { arr, o: S.day * STEP } : null;
+}
+function seenText() {
+  const t = S.run.tag;
+  return t === 'unseen' ? 'The model never saw this year.' : t === 'tune' ? 'This year was used for tuning.' : 'The model was trained on this year.';
+}
+function blank(title, sub, msg, sc) { return { title, sub, vals: null, scale: sc, tick, honest: '', empty: msg, opts: { sel: S.sel } }; }
+
+/* Forecast tab and What-if tab: A, B and the difference between them. */
+function specCompare() {
+  const R = S.run, f = S.field, V = view(), wet = f.dpal === 'dWet', fc = S.tab !== 'whatif';
+  const showMask = !fc && S.count > 0;
+  const va = fieldAt(V.A, S.day, f);
+  let vb = null, vc = null;
+  if (V.B) {
+    vb = fieldAt(V.B, S.day, f); vc = new Float32Array(CELLS);
+    for (let p = 0; p < CELLS; p++) vc[p] = V.sign * (vb[p] - va[p]);
+  }
+  const dsc = diffScale(diffMax(f), PAL[f.dpal]);
+  // the 50-futures test of the user's change: grey out squares where the futures do not agree on the direction
+  let veil = null, info = null, agree = null;
+  const F = S.fut;
+  if (!fc && S.veilOn && vc && F && F.forRun === R.id && F.pair) {
+    const off = (F.fi[f.key] * F.T + S.day) * CELLS, least = dsc.breaks[5];
+    veil = new Uint8Array(CELLS); agree = new Uint8Array(CELLS); info = { shown: 0, solid: 0 };
+    for (let p = 0; p < CELLS; p++) {
+      agree[p] = Math.max(F.pair.up[off + p], F.pair.down[off + p]);
+      if (Math.abs(vc[p]) < least) continue;
+      info.shown++;
+      if (agree[p] < 45) veil[p] = 1; else info.solid++;
+    }
+  }
+  const what = f.name + ', ' + f.unit, heavy = f.key === 'tp' ? ' Pink line: heavy rain, 10 mm a day or more.' : '';
+  const maps = [
+    { title: V.titles[0], sub: what, vals: va, scale: f.scale, tick, honest: 'Model forecast, about 100 km squares, daily.' + heavy,
+      opts: { heavy: f.key === 'tp', wind: windOpt(V.A, f), mask: showMask, fill: true, sel: S.sel } },
+    { title: V.titles[1], sub: what, vals: vb, scale: f.scale, tick, empty: V.emptyB,
+      honest: fc ? 'Recorded weather from the organizers\' data. ' + seenText() : 'Modelled what-if, not proof of real-world effect. Yellow line: your region.',
+      opts: { heavy: f.key === 'tp', wind: windOpt(V.B, f), mask: showMask, sel: S.sel } },
+    { title: V.titles[2], sub: 'difference, ' + f.unit, vals: vc, scale: dsc, tick: signedTick,
+      empty: fc ? 'Nothing to compare for this day.' : 'The difference shows up here once you make a change.',
+      honest: fc ? 'Forecast minus recorded. ' + (wet ? 'Brown: forecast too dry. Green: too wet.' : 'Blue: forecast too low. Red: too high.')
+        : 'With minus without. ' + (wet ? 'Brown: drier. Green: wetter.' : 'Blue: lower. Red: higher.') + ' Dashed line: the furthest the change can travel by this day.' +
+          (veil ? ' Grey: fewer than 45 of the 50 futures agree which way it goes.' : ''),
+      opts: { mask: showMask, sel: S.sel, veil, reach: !fc && V.B && S.day > 0 ? S.meta.reach * S.day : 0 } },
+  ];
+  const tip = (p) => {
+    const rows = [[V.short[0], fmt(va[p]) + ' ' + f.unit]];
+    if (vb) rows.push([V.short[1], fmt(vb[p]) + ' ' + f.unit], [fc ? 'Forecast miss' : 'Change', signed(vc[p], 2)]);
+    if (agree) rows.push(['Futures that agree', agree[p] + ' of ' + F.runs]);
+    return rows;
+  };
+  return { maps, tip, facts: () => drawFacts(va, vb, vc, info) };
+}
+
+/* 50 futures tab: how many runs cross a line, a bad-case run, and how much the runs disagree. */
+function specFutures() {
+  const R = S.run, F = S.fut, f = S.field, t = S.day;
+  if (!F || F.forRun !== R.id) {
+    const msg = S.futFail ? 'The 50 futures did not run.' : 'Running 50 futures';
+    return { maps: [blank('How many of the 50 futures', '', msg, COUNT_SCALE), blank('A bad-case future', '', msg, f.scale), blank('How much the futures disagree', '', msg, COUNT_SCALE)],
+      tip: () => [], facts: () => { $('changeTitle').textContent = 'How sure are we?'; $('changeBody').innerHTML = fact(msg, ''); $('changeHint').textContent = ''; } };
+  }
+  const fi = F.fi[f.key], T = F.T, at = (a) => a.subarray((fi * T + t) * CELLS, (fi * T + t + 1) * CELLS);
+  const lad = F.ladders[f.key], li = S.level[f.key], below = lad.sign === '<=', lv = lad.levels[li];
+  const line = f.name.toLowerCase() + (below ? ' at most ' : ' at least ') + lv + ' ' + f.unit;
+  const cnt = new Float32Array(CELLS), co = (li * T + t) * CELLS, counts = F.counts[f.key];
+  for (let p = 0; p < CELLS; p++) cnt[p] = counts[co + p];
+  const bad = at(below ? F.low : F.high), spread = at(F.spread), mean = at(F.mean), low = at(F.low), high = at(F.high);
+  if (!F.smax[f.key]) {
+    const all = F.spread.slice(fi * T * CELLS, (fi + 1) * T * CELLS).sort();
+    F.smax[f.key] = nice(Math.max(all[Math.floor(all.length * 0.995)], f.floor / 2));
+  }
+  const ssc = makeScale([0, 1, 2, 3, 4, 5, 6, 7, 8].map((k) => k / 8 * F.smax[f.key]), PAL.mist);
+  let chk = '';
+  if (F.check) { const c = F.check.spread_over_miss['4']; chk = ' Checked on ' + F.check.years.join(' and ') + ': at day 4 the spread is ' + Math.min(...c) + ' to ' + Math.max(...c) + ' of the real miss.'; }
+  const maps = [
+    { title: 'How many of the ' + F.runs + ' futures', sub: line, vals: cnt, scale: COUNT_SCALE, tick,
+      honest: 'Scenario frequency, not a calibrated probability. Each future starts from a slightly nudged start day and gets a small random kick every day.',
+      opts: { sel: S.sel } },
+    { title: 'A bad-case future', sub: f.name + ', ' + f.unit, vals: bad, scale: f.scale, tick,
+      honest: (below ? '45 of the 50 futures stay above this.' : '45 of the 50 futures stay below this.') + ' Use it to plan for the worse end, not as the forecast.',
+      opts: { heavy: f.key === 'tp', sel: S.sel } },
+    { title: 'How much the futures disagree', sub: 'spread, ' + f.unit, vals: spread, scale: ssc, tick,
+      honest: 'Bright: the futures split here, so trust the forecast less.' + chk, opts: { sel: S.sel } },
+  ];
+  const tip = (p) => [['Futures with ' + line, cnt[p] + ' of ' + F.runs], ['Plain forecast', fmt(f.get(R.A, t * STEP, p)) + ' ' + f.unit],
+    ['9 in 10 futures', fmt(low[p]) + ' to ' + fmt(high[p])], ['Spread', '±' + fmt(spread[p])]];
+  const facts = () => {
+    const p = S.sel.i * NLON + S.sel.j, n = cnt[p];
+    $('changeTitle').textContent = 'How sure are we? ' + placeText(S.sel.i, S.sel.j) + ', ' + dayText(t);
+    let h = fact('Futures with ' + line, n + ' of ' + F.runs, n >= 45 ? 'nearly all agree' : n <= 5 ? 'nearly none' : 'the futures are split', n >= 45 || n <= 5 ? 'ok' : '') +
+      fact('Plain forecast', fmt(f.get(R.A, t * STEP, p)) + ' ' + f.unit) +
+      fact('Middle of the futures', fmt(mean[p]) + ' ' + f.unit) +
+      fact('9 in 10 futures fall between', fmt(low[p]) + ' and ' + fmt(high[p]) + ' ' + f.unit);
+    if (t > 0 && t <= R.td) {
+      const tr = f.get(R.T, t * STEP, p), inside = tr >= low[p] && tr <= high[p];
+      h += fact('What really happened', fmt(tr) + ' ' + f.unit, inside ? 'inside that range' : 'outside that range', inside ? 'ok' : 'no');
+    }
+    $('changeBody').innerHTML = h;
+    $('changeHint').textContent = 'Scenario frequency, not a calibrated probability. ' + F.runs + ' runs took ' + F.ms.toFixed(0) + ' ms on the ' + F.device + '.';
+  };
+  return { maps, tip, facts };
+}
+
+/* Butterfly Finder tab: the forecast, what the chosen outcome depends on, and a rerun that tests it. */
+function targetCells() {
+  const out = [];
+  for (let di = -S.findSize; di <= S.findSize; di++) for (let dj = -S.findSize; dj <= S.findSize; dj++) {
+    const i = S.sel.i + di, j = S.sel.j + dj;
+    if (i >= 0 && i < NLAT && j >= 0 && j < NLON) out.push(i * NLON + j);
+  }
+  return out;
+}
+function finderKey() { return [S.run.id, S.day, S.field.key, S.sel.i, S.sel.j, S.findSize, S.findSign].join(':'); }
+function specFinder() {
+  const R = S.run, f = S.field, t = S.day, X = S.find && S.find.key === finderKey() ? S.find : null;
+  const va = fieldAt(R.A, t, f), r = S.findSize;
+  const box = { i0: Math.max(0, S.sel.i - r), i1: Math.min(NLAT - 1, S.sel.i + r), j0: Math.max(0, S.sel.j - r), j1: Math.min(NLON - 1, S.sel.j + r) };
+  const where = placeText(S.sel.i, S.sel.j), goal = f.name.toLowerCase() + ' ' + where + ' on ' + dayText(t);
+  const mapA = { title: 'Model forecast', sub: f.name + ', ' + f.unit, vals: va, scale: f.scale, tick,
+    honest: 'White box: the outcome we ask about. Click any square to move it.',
+    opts: { heavy: f.key === 'tp', wind: windOpt(R.A, f), box, lines: X && !X.flat ? [{ segs: X.patchSegs, color: '#ffd43b', width: 1.8 }] : null } };
+  const setFacts = (rows, hint) => { $('changeTitle').textContent = 'Butterfly Finder: ' + goal; $('changeBody').innerHTML = rows; $('changeHint').textContent = hint; };
+  let msg = null;
+  if (t === 0) msg = 'Move the slider to a day after the start day.';
+  else if (!X) msg = S.findFail === finderKey() ? 'The Finder did not run.' : 'Tracing what this depends on';
+  else if (X.flat) msg = 'Nothing to trace: the forecast here is flat, for example no rain at all. Pick another square, day or field.';
+  if (msg) {
+    return { maps: [mapA, blank('What it depends on', 'start day', msg, SCORE_SCALE), blank('Proof: nudge that patch, rerun', '', msg, diffScale(f.floor, PAL[f.dpal]))],
+      tip: (p) => [['Forecast', fmt(va[p]) + ' ' + f.unit]], facts: () => setFacts(fact(msg, ''), '') };
+  }
+  const score = new Float32Array(CELLS);
+  let dm = 0;
+  for (let p = 0; p < CELLS; p++) { score[p] = X.score[p] * 100; if (Math.abs(X.diff[p]) > dm) dm = Math.abs(X.diff[p]); }
+  const dsc = diffScale(nice(Math.max(dm, f.notice * 2)), PAL[f.dpal]);
+  const patchLine = { segs: X.patchSegs, color: '#ffd43b', width: 1.8 };
+  const reach = { segs: contour(pad(X.dist, false), S.meta.reach * t + 0.5), color: 'rgba(255,255,255,0.9)', width: 1.2, dash: [5, 5] };
+  const maps = [mapA,
+    { title: 'What it depends on', sub: 'start day, % of the strongest square', vals: score, scale: SCORE_SCALE, tick,
+      honest: 'Model sensitivity, not proven cause. Brighter squares of the start day matter more for the outcome. Yellow line: the patch we test. Dashed line: the furthest the model can reach.',
+      opts: { box, lines: [patchLine, reach] } },
+    { title: 'Proof: nudge that patch, rerun', sub: 'difference on ' + dayText(t) + ', ' + f.unit, vals: X.diff, scale: dsc, tick: signedTick,
+      honest: 'A real model rerun with the yellow patch nudged, minus the plain forecast. ' + (f.dpal === 'dWet' ? 'Brown: drier. Green: wetter.' : 'Blue: lower. Red: higher.'),
+      opts: { box, lines: [patchLine] } },
+  ];
+  const tip = (p) => [['Forecast', fmt(va[p]) + ' ' + f.unit], ['Importance', score[p].toFixed(0) + '% of the strongest'], ['Change in the rerun', signed(X.diff[p], 2)]];
+  const facts = () => {
+    const ok = Math.sign(X.predicted_change) === Math.sign(X.real_change) && Math.abs(X.real_change) > 4 * Math.abs(X.wrong_place_change);
+    const ing = X.ingredients.filter((kv) => kv[1] >= 0.05).map((kv) => kv[0] + ' ' + (kv[1] * 100).toFixed(0) + '%').join(', ');
+    const nm = X.nudge_max, size = ['moisture ' + fmt(nm.moisture) + ' kg/m²', 'temperature ' + fmt(nm.temperature) + ' °C', 'wind ' + fmt(nm.wind) + ' m/s', 'pressure ' + fmt(nm.pressure) + ' hPa'].join(', ');
+    setFacts(fact('Plain forecast for the outcome', fmt(X.base_value, 2) + ' ' + f.unit) +
+      fact('Change the map predicts', signed(X.predicted_change, 2) + ' ' + f.unit, 'from the sensitivity alone, before any rerun') +
+      fact('Change when the model is rerun', signed(X.real_change, 2) + ' ' + f.unit, ok ? 'the prediction holds' : 'the prediction is weak here', ok ? 'ok' : 'no') +
+      fact('Same nudge in the wrong place', signed(X.wrong_place_change, 2) + ' ' + f.unit, 'the same patch moved half a map away') +
+      fact('What matters most', ing) +
+      fact('Size of the nudge', X.patch_squares + ' squares', 'at most: ' + size),
+    'Model sensitivity, not proven cause. Found by back-propagation through the forecast in ' + X.ms.toFixed(0) + ' ms, a method from published work on learned weather models.');
+  };
+  return { maps, tip, facts };
+}
 
 function render() {
   const R = S.run;
   if (!R) return;
-  const f = S.field, o = S.day * STEP, V = view(), wet = f.dpal === 'dWet', fc = S.tab === 'forecast';
-  const windOn = S.arrows || f.key === 'wind' || f.key === 'u10' || f.key === 'v10';
-  const showMask = !fc && S.count > 0;
-  const va = new Float32Array(CELLS);
-  for (let p = 0; p < CELLS; p++) va[p] = f.get(V.A, o, p);
-  let vb = null, vc = null;
-  if (V.B) {
-    vb = new Float32Array(CELLS); vc = new Float32Array(CELLS);
-    for (let p = 0; p < CELLS; p++) { vb[p] = f.get(V.B, o, p); vc[p] = V.sign * (vb[p] - va[p]); }
-  }
-  const dsc = diffScale(diffMax(f), PAL[f.dpal]);
-  const A = PANELS.mapA, B = PANELS.mapB, C = PANELS.mapC;
-  drawMap(A, va, f.scale, { heavy: f.key === 'tp', wind: windOn ? { arr: V.A, o } : null, mask: showMask, fill: true, sel: S.sel });
-  drawMap(B, vb, f.scale, { heavy: f.key === 'tp', wind: windOn && V.B ? { arr: V.B, o } : null, mask: showMask, sel: S.sel });
-  drawMap(C, vc, dsc, { mask: showMask, sel: S.sel, reach: !fc && V.B && S.day > 0 ? S.meta.reach * S.day : 0 });
-
-  const what = f.name + ', ' + f.unit;
-  A.mt.textContent = V.titles[0]; B.mt.textContent = V.titles[1]; C.mt.textContent = V.titles[2];
-  A.ms.textContent = what; B.ms.textContent = what; C.ms.textContent = 'difference, ' + f.unit;
-  B.empty.hidden = C.empty.hidden = !!V.B;
-  B.empty.textContent = V.emptyB;
-  C.empty.textContent = fc ? 'Nothing to compare for this day.' : 'The difference shows up here once you make a change.';
-  drawLegend(A, f.scale, tick); drawLegend(B, f.scale, tick); drawLegend(C, dsc, signedTick);
-
-  const heavy = f.key === 'tp' ? ' Pink line: heavy rain, 10 mm a day or more.' : '';
-  const seen = R.tag === 'unseen' ? 'The model never saw this year.' : R.tag === 'tune' ? 'This year was used for tuning.' : 'The model was trained on this year.';
-  A.honest.textContent = 'Model forecast, about 100 km squares, daily.' + heavy;
-  if (fc) {
-    B.honest.textContent = 'Recorded weather from the organizers\' data. ' + seen;
-    C.honest.textContent = 'Forecast minus recorded. ' + (wet ? 'Brown: forecast too dry. Green: too wet.' : 'Blue: forecast too low. Red: too high.');
-  } else {
-    B.honest.textContent = 'Modelled what-if, not proof of real-world effect. Yellow line: your region.';
-    C.honest.textContent = 'With minus without. ' + (wet ? 'Brown: drier. Green: wetter.' : 'Blue: lower. Red: higher.') +
-      ' Dashed line: the furthest the change can travel by this day.';
-  }
-
+  const spec = S.tab === 'futures' ? specFutures() : S.tab === 'finder' ? specFinder() : specCompare();
+  S.spec = spec;
+  ['mapA', 'mapB', 'mapC'].forEach((id, k) => {
+    const P = PANELS[id], m = spec.maps[k];
+    drawMap(P, m.vals, m.scale, m.opts);
+    P.mt.textContent = m.title; P.ms.textContent = m.sub;
+    P.empty.hidden = !!m.vals; P.empty.textContent = m.empty || '';
+    drawLegend(P, m.scale, m.tick);
+    P.honest.textContent = m.honest;
+  });
   $('day').value = S.day;
   $('dayLabel').innerHTML = (S.day === 0 ? 'Start day' : 'Day +' + S.day) + '<small>' + dayDate(S.day) + '</small>';
   [...$('dticks').children].forEach((el, k) => el.classList.toggle('on', k === S.day));
+  drawTools();
   drawPlace();
-  drawFacts(va, vb, vc);
+  spec.facts();
+  if (S.tab === 'futures' || (S.tab === 'whatif' && S.veilOn && R.B)) ensureFutures();
+  if (S.tab === 'futures') ensurePlace();
+  if (S.tab === 'finder') ensureFinder();
+}
+
+/* ---------- the 50 futures and the Butterfly Finder: fetch when the current tab needs them ---------- */
+async function post(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'request failed');
+  return j;
+}
+async function ensureFutures() {
+  const R = S.run, pair = S.tab === 'whatif' && S.veilOn && !!R.B, want = R.id + (pair ? ':pair' : '');
+  if (S.fut && S.fut.forRun === R.id && (!pair || S.fut.pair)) return;
+  if (S.futBusy === want || S.futFail === want) return;
+  S.futBusy = want;
+  try {
+    const j = await post('api/futures', { date: S.date, shock: pair ? R.shock : null });
+    if (S.run.id === R.id) {
+      const counts = {};
+      for (const k in j.counts) counts[k] = decU8(j.counts[k]);
+      S.fut = { forRun: R.id, id: j.id, runs: j.runs, T: j.days, ms: j.ms, device: j.device, check: j.check, ladders: j.ladders, counts,
+        fi: Object.fromEntries(j.fields.map((k, i) => [k, i])), mean: dec(j.mean), spread: dec(j.spread), low: dec(j.low), high: dec(j.high),
+        pair: j.pair ? { up: decU8(j.pair.up), down: decU8(j.pair.down) } : null, smax: {}, place: null };
+      S.futFail = null;
+    }
+  } catch (e) { S.futFail = want; banner('The 50 futures did not run: ' + e.message); }
+  if (S.futBusy === want) S.futBusy = null;
+  render();
+}
+async function ensurePlace() {
+  const F = S.fut, p = S.sel.i * NLON + S.sel.j;
+  if (!F || F.forRun !== S.run.id || (F.place && F.place.p === p) || F.placeBusy === p) return;
+  F.placeBusy = p;
+  try {
+    const j = await post('api/futures/place', { id: F.id, i: S.sel.i, j: S.sel.j });
+    if (S.fut === F) { F.place = { p, base: dec(j.base) }; drawPlace(); }
+  } catch (e) { /* the chart simply shows no thin lines */ }
+  if (F.placeBusy === p) F.placeBusy = null;
+}
+async function ensureFinder() {
+  if (S.day === 0) return;
+  const key = finderKey();
+  if ((S.find && S.find.key === key) || S.findBusy === key || S.findFail === key) return;
+  S.findBusy = key;
+  try {
+    const j = await post('api/finder', { date: S.date, day: S.day, field: S.field.key, cells: targetCells(), sign: S.findSign });
+    j.key = key;
+    if (!j.flat) { j.score = dec(j.score); j.patch = dec(j.patch); j.diff = dec(j.diff); j.patchSegs = contour(pad(j.patch, true), 0.5); }
+    j.dist = chebDist(j.target_cells);
+    if (finderKey() === key) S.find = j;
+  } catch (e) { S.findFail = key; banner('The Butterfly Finder did not run: ' + e.message); }
+  if (S.findBusy === key) S.findBusy = null;
+  render();
+}
+
+/* ---------- the row of controls under the tabs ---------- */
+function drawTools() {
+  const f = S.field, F = S.fut, lad = F && F.ladders[f.key];
+  const sig = [S.tab, f.key, lad ? F.id : 0, S.veilOn, S.findSize, S.findSign, S.level[f.key]].join('|');
+  if (sig === S.toolsSig) return;
+  S.toolsSig = sig;
+  let h = '';
+  if (S.tab === 'forecast') h = '<span>Left: the model. Middle: the recorded weather. Right: the gap between the two.</span>';
+  else if (S.tab === 'whatif') {
+    h = '<label class="check"><input type="checkbox" id="veil"' + (S.veilOn ? ' checked' : '') + '> Test my change against 50 futures</label>' +
+      '<span>Greys out squares where the futures do not agree which way your change pushes.</span>';
+  } else if (S.tab === 'futures') {
+    h = '<span>Count the futures with ' + f.name.toLowerCase() + '</span>';
+    if (lad) {
+      h += '<select id="level">' + lad.levels.map((lv, k) => '<option value="' + k + '"' + (k === S.level[f.key] ? ' selected' : '') + '>' +
+        (lad.sign === '<=' ? 'at most ' : 'at least ') + lv + ' ' + f.unit + '</option>').join('') + '</select>';
+    }
+    h += '<span>Click a square to see all 50 futures for that place in the chart below.</span>';
+  } else {
+    h = '<span>Outcome: ' + f.name.toLowerCase() + ' over</span><select id="fsize">' +
+      ['1 square', '3 by 3 squares', '5 by 5 squares'].map((t, k) => '<option value="' + k + '"' + (k === S.findSize ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>' +
+      '<span>Nudge the start day to</span><select id="fsign"><option value="1"' + (S.findSign > 0 ? ' selected' : '') + '>raise it</option><option value="-1"' + (S.findSign < 0 ? ' selected' : '') + '>lower it</option></select>' +
+      '<span>Click a square to move the outcome. The day slider sets the day.</span>';
+  }
+  $('tabTools').innerHTML = h;
 }
 
 /* ---------- "this place" chart ---------- */
@@ -369,11 +626,17 @@ function drawPlace() {
   cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
   const ctx = cv.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
-  const f = S.field, p = S.sel.i * NLON + S.sel.j, n = R.n, fc = S.tab === 'forecast';
-  const src = fc ? R.T : R.B, bn = fc ? R.td : n, a = [], b = [];
+  const f = S.field, p = S.sel.i * NLON + S.sel.j, n = R.n, wi = S.tab === 'whatif', fu = S.tab === 'futures';
+  const src = wi ? R.B : R.T, bn = wi ? n : R.td, a = [], b = [], ghosts = [];
   for (let t = 0; t <= n; t++) a.push(f.get(R.A, t * STEP, p));
   if (src) for (let t = 0; t <= bn; t++) b.push(f.get(src, t * STEP, p));
+  const F = S.fut;
+  if (fu && F && F.forRun === R.id && F.place && F.place.p === p) {
+    const fi = F.fi[f.key], m = F.place.base;
+    for (let k = 1; k < F.runs; k++) { const g = []; for (let t = 0; t < F.T; t++) g.push(m[(k * F.T + t) * 7 + fi]); ghosts.push(g); }
+  }
   let lo = Math.min(...a, ...b), hi = Math.max(...a, ...b);
+  for (const g of ghosts) { lo = Math.min(lo, ...g); hi = Math.max(hi, ...g); }
   if (hi - lo < f.floor) { const mid = (hi + lo) / 2; lo = mid - f.floor / 2; hi = mid + f.floor / 2; }
   const gap = (hi - lo) * 0.12; hi += gap; lo -= gap;
   if (f.key === 'tp' || f.key === 'wind' || f.key === 'tcwv') lo = Math.max(0, lo);
@@ -391,7 +654,10 @@ function drawPlace() {
   ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1; ctx.beginPath();
   ctx.moveTo(Math.round(X(S.day)) + 0.5, CHART.T); ctx.lineTo(Math.round(X(S.day)) + 0.5, CHART.T + ph); ctx.stroke();
 
-  const colB = fc ? '#e9eef7' : '#ffb454';
+  ctx.strokeStyle = 'rgba(90,176,255,0.22)'; ctx.lineWidth = 1; ctx.lineJoin = 'round';
+  for (const g of ghosts) { ctx.beginPath(); g.forEach((v, t) => (t ? ctx.lineTo(X(t), Y(v)) : ctx.moveTo(X(t), Y(v)))); ctx.stroke(); }
+
+  const colB = wi ? '#ffb454' : '#e9eef7';
   const line = (s, col, dash) => {
     if (!s.length) return;
     ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.setLineDash(dash || []); ctx.beginPath();
@@ -403,14 +669,14 @@ function drawPlace() {
       ctx.beginPath(); ctx.arc(X(t), Y(v), r, 0, 6.3); ctx.fillStyle = col; ctx.fill();
     });
   };
-  line(b, colB, fc ? [5, 4] : null);
+  line(b, colB, wi ? null : [5, 4]);
   line(a, '#5ab0ff');
 
-  const pl = place(S.sel.i, S.sel.j);
+  const pl = place(S.sel.i, S.sel.j), nameA = wi ? 'Without your change' : fu ? 'Plain forecast' : 'Model forecast', nameB = wi ? 'With your change' : 'What really happened';
   $('placeTitle').textContent = (pl.near ? 'Near ' + pl.near + ' (' + pl.coords + ')' : pl.coords) + ': ' + f.name.toLowerCase() + ', ' + f.unit;
-  const V = view();
-  let html = '<span><i style="border-color:#5ab0ff"></i>' + V.titles[0] + ' <b>' + fmt(a[S.day]) + '</b></span>';
-  if (b.length) html += '<span><i class="' + (fc ? 'dash' : '') + '" style="border-color:' + colB + '"></i>' + V.titles[1] + ' <b>' + (S.day < b.length ? fmt(b[S.day]) : 'none') + '</b></span>';
+  let html = '<span><i style="border-color:#5ab0ff"></i>' + nameA + ' <b>' + fmt(a[S.day]) + '</b></span>';
+  if (b.length) html += '<span><i class="' + (wi ? '' : 'dash') + '" style="border-color:' + colB + '"></i>' + nameB + ' <b>' + (S.day < b.length ? fmt(b[S.day]) : 'none') + '</b></span>';
+  if (ghosts.length) html += '<span><i style="border-color:rgba(90,176,255,0.5);border-top-width:1px"></i>' + ghosts.length + ' other futures</span>';
   $('placeLegend').innerHTML = html + '<span>on ' + dayText(S.day) + '</span>';
 }
 
@@ -418,8 +684,8 @@ function drawPlace() {
 function fact(label, value, small, cls) {
   return '<div class="fact"><span>' + label + '</span><b' + (cls ? ' class="' + cls + '"' : '') + '>' + value + (small ? '<small>' + small + '</small>' : '') + '</b></div>';
 }
-function drawFacts(va, vb, vc) {
-  const R = S.run, f = S.field, o = S.day * STEP, fc = S.tab === 'forecast', body = $('changeBody'), hint = $('changeHint');
+function drawFacts(va, vb, vc, info) {
+  const R = S.run, f = S.field, o = S.day * STEP, fc = S.tab !== 'whatif', body = $('changeBody'), hint = $('changeHint');
   $('changeTitle').textContent = fc ? 'How close was the forecast?' : 'What your change did';
   if (!vb) {
     body.innerHTML = fact(fc ? 'No recorded weather for this day' : 'No change yet', '');
@@ -466,7 +732,8 @@ function drawFacts(va, vb, vc) {
   body.innerHTML = fact('Biggest rise', signed(Math.max(mx, 0), 2) + ' ' + f.unit, mx > f.notice ? placeText(Math.floor(px / NLON), px % NLON) : 'none worth noting') +
     fact('Biggest fall', signed(Math.min(mn, 0), 2) + ' ' + f.unit, mn < -f.notice ? placeText(Math.floor(pn / NLON), pn % NLON) : 'none worth noting') +
     fact('Squares that changed by more than ' + f.notice + ' ' + f.unit, cnt + ' of ' + CELLS) +
-    fact('Furthest such square from your region', far + ' squares', 'the model can carry it ' + lim + ' at most by ' + dayText(S.day));
+    fact('Furthest such square from your region', far + ' squares', 'the model can carry it ' + lim + ' at most by ' + dayText(S.day)) +
+    (info ? fact('Coloured squares where 45 or more of the 50 futures agree', info.solid + ' of ' + info.shown, '', info.shown && info.solid >= info.shown * 0.5 ? 'ok' : '') : '');
   hint.textContent = f.name + ', ' + dayText(S.day) + '. Modelled what-if, not proof of real-world effect.';
 }
 
@@ -627,17 +894,12 @@ function onUp(e, cv) {
   maskChanged(true);
 }
 function showTip(e, c) {
-  const R = S.run, tip = $('tip');
-  if (!R) return;
-  const V = view(), f = S.field, p = c.i * NLON + c.j, o = S.day * STEP, pl = place(c.i, c.j), a = f.get(V.A, o, p);
-  let h = '<div class="th">' + pl.coords + (pl.near ? ', near ' + pl.near : '') + '<br>' + f.name + ', ' + dayText(S.day) + '</div>' +
-    '<div class="tr"><span>' + V.short[0] + '</span><b>' + fmt(a) + ' ' + f.unit + '</b></div>';
-  if (V.B) {
-    const b = f.get(V.B, o, p);
-    h += '<div class="tr"><span>' + V.short[1] + '</span><b>' + fmt(b) + ' ' + f.unit + '</b></div>' +
-      '<div class="tr"><span>' + (S.tab === 'forecast' ? 'Forecast miss' : 'Change') + '</span><b>' + signed(V.sign * (b - a), 2) + '</b></div>';
-  }
-  tip.innerHTML = h; tip.hidden = false;
+  const tip = $('tip');
+  if (!S.run || !S.spec) return;
+  const pl = place(c.i, c.j);
+  tip.innerHTML = '<div class="th">' + pl.coords + (pl.near ? ', near ' + pl.near : '') + '<br>' + S.field.name + ', ' + dayText(S.day) + '</div>' +
+    S.spec.tip(c.i * NLON + c.j).map((r) => '<div class="tr"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('');
+  tip.hidden = false;
   const tw = tip.offsetWidth, th = tip.offsetHeight;
   tip.style.left = Math.min(window.innerWidth - tw - 8, e.clientX + 16) + 'px';
   tip.style.top = Math.max(8, Math.min(window.innerHeight - th - 8, e.clientY + 16)) + 'px';
@@ -668,7 +930,7 @@ async function runModel() {
   const T = new Float32Array((j.truth_days + 1) * STEP);
   T.set(init, 0);
   if (j.truth_days) T.set(dec(j.truth), STEP);
-  S.run = { n, A, B, T, td: j.truth_days, baseMs: j.base_ms, shockMs: j.shock_ms, tag: j.tag, cache: {} };
+  S.run = { id: my, shock: body.shock, n, A, B, T, td: j.truth_days, baseMs: j.base_ms, shockMs: j.shock_ms, tag: j.tag, cache: {} };
   if (S.day > n) S.day = n;
   $('chipSpeed').innerHTML = '<b>' + j.base_ms.toFixed(0) + ' ms</b> for a ' + n + '-day forecast' + (j.shock_ms ? ', <b>' + j.shock_ms.toFixed(0) + ' ms</b> for the what-if' : '');
   const yc = $('chipYear');
@@ -680,6 +942,7 @@ async function runModel() {
 /* ---------- controls ---------- */
 function setTab(tab, quiet) {
   S.tab = tab;
+  if (tab !== 'whatif' && S.tool !== 'look') setTool('look');
   [...$('tabs').children].forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   if (!quiet) render();
 }
@@ -725,6 +988,14 @@ function buildControls() {
   setKnobs({});
   $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
   $('tools').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setTool(b.dataset.tool); });
+  $('tabTools').addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.id === 'veil') S.veilOn = t.checked;
+    else if (t.id === 'level') S.level[S.field.key] = +t.value;
+    else if (t.id === 'fsize') S.findSize = +t.value;
+    else if (t.id === 'fsign') S.findSign = +t.value;
+    render();
+  });
   $('brush').addEventListener('input', (e) => { S.brush = +e.target.value; $('brushOut').textContent = S.brush; });
   $('offWarm').addEventListener('click', () => official('warm'));
   $('offStall').addEventListener('click', () => official('stall'));

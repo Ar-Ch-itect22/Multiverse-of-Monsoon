@@ -35,6 +35,11 @@ watch what happens.
 - The coastline is drawn from the land-sea mask.
 - `dashboard/backend.py` imports `model/` and serves everything that is not graded, on another port.
 - Every number on screen comes from a live model run. Nothing is pre-rendered.
+- `dashboard/lab.py` holds the 50 futures and the Butterfly Finder. It uses the same network and the same one-day
+  step as `serve.py`. The Finder's proof reruns go through the exact call the graded server uses.
+- The 50 futures get a small random kick each day, sized to the model's own one-day miss on 2019.
+  `training/calibrate_futures.py` sets those sizes and checks the spread against the real miss. Rerun it after any
+  model change and save the result to `dashboard/futures_check.json`.
 
 ## Feature list, in build order
 

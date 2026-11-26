@@ -10,6 +10,8 @@ Routes (all under /api, plus the three static files of the page):
     GET  /api/meta    grid, land mask, date range, saved scoreboard result
     POST /api/run     one forecast, and the same forecast again with the user's change applied
     POST /api/proof   speed, zero-change test, repeat test, and the inputs the page needs to test the graded server
+    POST /api/futures 50 forecasts from nudged starts: how many cross a line, the range, the spread (see lab.py)
+    POST /api/finder  Butterfly Finder: what an outcome depends on, with a rerun that tests it (see lab.py)
 """
 from __future__ import annotations
 
@@ -30,14 +32,20 @@ from fastapi.responses import FileResponse, JSONResponse
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(HERE))
+import lab  # noqa: E402
 from model.net import NC, NLAT, NLON, RAIN, T2M, T2M_MAX, T2M_MIN, Engine  # noqa: E402
 
 DATA = ROOT / "data" / "india_climate_train.nc"
 SCORES = HERE / "scores.json"
+CHECK = HERE / "futures_check.json"
 MAX_STEPS = 10
+N_RUNS = 50
 GRADED_PORT = 8000
 LOCK = threading.Lock()
 ENGINE = Engine(ROOT / "model")
+FAST = lab.fast_copy(ENGINE)                     # same weights on the graphics chip when there is one; used only for the 50 futures
+CACHE: dict = {}                                 # the last many-futures result, for the per-square chart
 PARAMS = int(sum(p.numel() for p in ENGINE.net.parameters()))
 
 
@@ -168,6 +176,92 @@ async def proof(request: Request):
             "init_states": b64(init), "doy_sincos": sc, "rollout": b64(a), "graded_port": GRADED_PORT}
 
 
+def b64u8(a) -> str:
+    return base64.b64encode(np.ascontiguousarray(a.numpy() if hasattr(a, "numpy") else a, dtype="u1").tobytes()).decode("ascii")
+
+
+def by_field(t) -> str:
+    """[T, 7, H, W] -> base64 of [7, T, H, W], the layout the page reads."""
+    return b64(t.permute(1, 0, 2, 3).numpy())
+
+
+@app.post("/api/futures")
+async def futures(request: Request):
+    """50 forecasts from nudged starts with daily random kicks. With a change, the same 50 again with the change applied."""
+    if SRC is None:
+        return fail("no starting weather on disk", 503)
+    try:
+        body = await request.json()
+        init, _, doy, _ = SRC.get(str(body["date"]), MAX_STEPS)
+        shock = body.get("shock")
+        delta = build_delta(init[-1], shock) if shock else None
+    except KeyError:
+        return fail("that day is not in the data", 404)
+    except Exception as e:  # noqa: BLE001
+        return fail(f"bad request: {e}")
+    key0 = ENGINE.key_from_sincos(sincos(doy))
+    with LOCK:
+        t0 = time.perf_counter()
+        base = lab.futures(FAST, init, key0, MAX_STEPS, N_RUNS)
+        changed = lab.futures(FAST, init, key0, MAX_STEPS, N_RUNS, delta=delta) if delta is not None else None
+        ms = (time.perf_counter() - t0) * 1000.0
+        s = lab.summarise(base)
+        pair = lab.compare(base, changed) if changed is not None else None
+        CACHE.update(id=CACHE.get("id", 0) + 1, base=base, changed=changed)
+        out_id = CACHE["id"]
+    return {"id": out_id, "runs": N_RUNS, "days": MAX_STEPS + 1, "fields": lab.FIELD_KEYS, "ms": ms,
+            "device": "graphics chip" if FAST is not ENGINE else "processor",
+            "mean": by_field(s["mean"]), "spread": by_field(s["spread"]), "low": by_field(s["low"]), "high": by_field(s["high"]),
+            "ladders": {k: {"sign": v[0], "levels": v[1]} for k, v in lab.LADDERS.items()},
+            "counts": {k: b64u8(v) for k, v in s["counts"].items()},
+            "pair": None if pair is None else {"mean_diff": by_field(pair["mean_diff"]), "up": b64u8(pair["up"].permute(1, 0, 2, 3)),
+                                               "down": b64u8(pair["down"].permute(1, 0, 2, 3))},
+            "check": json.loads(CHECK.read_text()) if CHECK.exists() else None}
+
+
+@app.post("/api/futures/place")
+async def futures_place(request: Request):
+    """Every run's values for one square, for the chart. Uses the last many-futures result."""
+    try:
+        body = await request.json()
+        i, j = int(body["i"]), int(body["j"])
+        if not (0 <= i < NLAT and 0 <= j < NLON):
+            raise ValueError("square is off the map")
+    except Exception as e:  # noqa: BLE001
+        return fail(f"bad request: {e}")
+    with LOCK:
+        if CACHE.get("id") != body.get("id"):
+            return fail("that result is no longer held", 409)
+        return {"id": CACHE["id"], "base": b64(CACHE["base"][:, :, :, i, j].numpy())}       # [runs, T, 7]
+
+
+@app.post("/api/finder")
+async def finder(request: Request):
+    """Butterfly Finder: which squares of the start day an outcome depends on, plus a rerun that tests the answer."""
+    if SRC is None:
+        return fail("no starting weather on disk", 503)
+    try:
+        body = await request.json()
+        init, _, doy, _ = SRC.get(str(body["date"]), MAX_STEPS)
+        day, field = int(body["day"]), str(body["field"])
+        cells = [int(c) for c in body["cells"]]
+        sign = -1.0 if float(body.get("sign", 1)) < 0 else 1.0
+        if not (1 <= day <= MAX_STEPS) or field not in lab.FIELD_KEYS or not cells or min(cells) < 0 or max(cells) >= NLAT * NLON:
+            raise ValueError("day, field or target is out of range")
+    except KeyError:
+        return fail("that day is not in the data", 404)
+    except Exception as e:  # noqa: BLE001
+        return fail(f"bad request: {e}")
+    with LOCK:
+        t0 = time.perf_counter()
+        res = lab.finder(ENGINE, init, sincos(doy), day, field, cells, sign)
+        res["ms"] = (time.perf_counter() - t0) * 1000.0
+    for k in ("score", "patch", "diff"):
+        if k in res:
+            res[k] = b64(res[k])
+    return res
+
+
 def page(name: str, kind: str):
     return FileResponse(HERE / name, media_type=kind, headers={"Cache-Control": "no-store"})
 
@@ -194,5 +288,7 @@ if __name__ == "__main__":
     ap.add_argument("--graded-port", type=int, default=8000)
     a = ap.parse_args()
     GRADED_PORT = a.graded_port
+    if SRC is not None:                          # warm up the many-futures path so the first click is fast
+        threading.Thread(target=lambda: lab.futures(FAST, SRC.data[:3], 1, 1, 2), daemon=True).start()
     print(f"VARUNA dashboard: http://127.0.0.1:{a.port}", flush=True)
     uvicorn.run(app, host=a.host, port=a.port, log_level="warning")
