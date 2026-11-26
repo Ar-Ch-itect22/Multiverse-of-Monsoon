@@ -17,6 +17,8 @@ The 2-page brief is [`VARUNA_brief.pdf`](VARUNA_brief.pdf), at the top of this r
 
 From `training/scoreboard.py`, which calls the organizers' scoring functions on 103 windows from 2020 and 2021. The
 model never saw those years in training or tuning. The hidden test uses other dates, so the official numbers will differ.
+With normal weather built by the kit's own function (a 15-day window) the forecast and heavy-rain lines come out 0.2 and
+0.3 lower.
 
 | Part | Ours |
 | --- | --- |
@@ -126,6 +128,14 @@ The dashboard page uses no libraries: plain JavaScript and canvas, no map tiles,
 
 Everything in this repo was written during the event. AI coding assistants were used to write and review code and
 for early idea notes.
+
+## Data credit
+
+The model was trained on `india_climate_train.nc` from the organizers' kit, and `model/norm.npz` holds a 365-day table
+of normal weather worked out from it. That file contains modified Copernicus Climate Change Service information (ERA5,
+Hersbach et al. 2020), accessed through Google WeatherBench 2 (Rasp et al. 2024). ERA5 is licensed under CC BY 4.0.
+The organizers regridded it to 1 degree, daily values, on a 32 by 36 grid over 6.5N to 37.5N and 65.5E to 100.5E.
+The data file itself is not in this repo.
 
 ## Method references
 
