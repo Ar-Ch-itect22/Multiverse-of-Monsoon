@@ -611,7 +611,7 @@ function onDown(e, cv) {
   if (!S.run) return;
   const c = cellAt(e, cv);
   if (S.tool === 'look') { S.sel = c; render(); return; }
-  cv.setPointerCapture(e.pointerId);
+  try { cv.setPointerCapture(e.pointerId); } catch (err) { /* painting still works without capture */ }
   $('tip').hidden = true;
   markOfficial(null);
   S.stroke = { tool: S.tool, start: c, last: null, base: S.mask.slice() };
