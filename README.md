@@ -5,6 +5,11 @@ watch what the model says happens next.
 
 The 2-page brief is [`VARUNA_brief.pdf`](VARUNA_brief.pdf), at the top of this repo.
 
+![The VARUNA dashboard: forecast, recorded weather and the gap between them](docs/img/dashboard.png)
+
+**To see the dashboard:** it is not hosted on the web. It runs on your own machine from this repo. Put the organizers'
+data file in `data/`, start the two servers listed under "Run" below, and open http://127.0.0.1:8050.
+
 ## What is in here
 
 - **A forecast model.** It takes the last 3 days on a 32 by 36 grid and rolls forward day by day. It is five small
