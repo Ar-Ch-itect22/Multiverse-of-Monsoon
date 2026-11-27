@@ -1,7 +1,21 @@
 # VARUNA: Multiverse of Monsoon (Track 2)
 
-Team Ship Happens. A small weather model for India that you can question: change the starting weather on a map and
-watch what the model says happens next.
+Team Ship Happens. **A weather model for India that you can question.** Forecast. Experiment. Understand.
+
+VARUNA is an interactive neural weather simulator for India. It forecasts the next 10 days, and then goes further: you
+can change the starting weather and see the alternative future, explore 50 possible futures, and trace which regions
+and weather fields a future event depends on.
+
+| | |
+| --- | --- |
+| **60.2 of 70** | model points on our own run of the organizers' scoring code |
+| **29.4 of 30** | for forecast error, the largest single part |
+| **0.4 s** | for a 10-day forecast on a laptop processor, against a limit of 5 s |
+| **103 of 103** | held-out test windows with valid output |
+| **50 futures** | explored in about 1.3 s |
+| **17 MB** | five small networks, averaged |
+
+These are our own measurements, not official results. Details and limits are below and in the brief.
 
 The 2-page brief is [`VARUNA_brief.pdf`](VARUNA_brief.pdf), at the top of this repo.
 
@@ -34,7 +48,9 @@ Every picture is the live dashboard running on the model in this repo. Start day
 ## Our own measurements
 
 From `training/scoreboard.py`, which calls the organizers' scoring functions on 103 windows from 2020 and 2021. The
-model never saw those years in training or tuning. The hidden test uses other dates, so the official numbers will differ.
+model never saw those years in training or tuning. The hidden test uses other dates, so the official numbers will differ. Every choice (weights, which
+networks to average, the fade) was made on 2019. We checked several versions on 2020 and 2021 during the event, so these
+numbers may be slightly optimistic.
 The numbers are a little lower with normal weather built by the kit's own function (a 15-day window): 0.2 and 0.3
 lower on the forecast and heavy-rain lines when we measured it on the single-network model.
 
