@@ -1,43 +1,43 @@
 {
  "windows": 103,
  "invalid_windows": 0,
- "forecast_error_pts_of_30": 28.8,
- "mean_skill": 0.1152,
+ "forecast_error_pts_of_30": 29.41,
+ "mean_skill": 0.1176,
  "skill_by_lead": {
-  "1": 0.2796,
-  "4": 0.0791,
-  "8": -0.0131
+  "1": 0.2847,
+  "4": 0.0815,
+  "8": -0.0133
  },
- "heavy_rain_pts_of_15": 8.06,
- "mean_csi_skill": 0.0537,
+ "heavy_rain_pts_of_15": 7.98,
+ "mean_csi_skill": 0.0532,
  "sharpness_pts_of_10": 10.0,
  "day8_variance_ratio": [
   1.01,
-  0.61,
-  0.77,
-  0.82,
+  0.63,
+  0.78,
+  0.83,
   0.92,
-  0.9
+  0.91
  ],
- "shock_pts_of_15": 12.69,
+ "shock_pts_of_15": 12.84,
  "shock_pass_rates": {
   "warm_ocean": {
    "nonzero": 1.0,
    "localized": 1.0,
-   "propagates": 0.85,
-   "stable": 0.77
+   "propagates": 0.77,
+   "stable": 0.85
   },
   "monsoon_stall": {
    "nonzero": 1.0,
    "localized": 1.0,
-   "propagates": 0.15,
+   "propagates": 0.23,
    "stable": 1.0
   }
  },
  "zero_shock_identical": true,
  "day4_beats_repeat_yesterday": true,
- "day4_skill_vs_repeat_yesterday": 0.2848,
- "model_pts_of_70": 59.55,
+ "day4_skill_vs_repeat_yesterday": 0.2866,
+ "model_pts_of_70": 60.23,
  "model_name": "varuna-local-v2",
  "years": [
   2020,

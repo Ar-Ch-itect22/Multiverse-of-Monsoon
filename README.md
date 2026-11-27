@@ -7,8 +7,8 @@ The 2-page brief is [`VARUNA_brief.pdf`](VARUNA_brief.pdf), at the top of this r
 
 ## What is in here
 
-- **A forecast model.** It takes the last 3 days on a 32 by 36 grid and rolls forward day by day. It is four small
-  networks averaged, 3.2 million weights and 13 MB in all, and takes about 0.3 s for 10 days on a laptop processor.
+- **A forecast model.** It takes the last 3 days on a 32 by 36 grid and rolls forward day by day. It is five small
+  networks averaged, 4.5 million weights and 17 MB in all, and takes about 0.4 s for 10 days on a laptop processor.
   No internet, no outside weather data.
 - **The graded server.** `serve.py` with `POST /health` and `POST /simulate`, as the contract asks.
 - **A dashboard.** One map, six tabs: Forecast, 50 futures, Butterfly Finder, Alerts, Sea route, What-if. Every forecast and
@@ -23,11 +23,11 @@ lower on the forecast and heavy-rain lines when we measured it on the single-net
 
 | Part | Ours |
 | --- | --- |
-| Forecast error | 28.8 of 30 |
-| Heavy rain | 8.1 of 15 |
+| Forecast error | 29.4 of 30 |
+| Heavy rain | 8.0 of 15 |
 | Sharpness | 10 of 10 |
-| Shock tests | 12.7 of 15 |
-| Model total | 59.6 of 70 |
+| Shock tests | 12.8 of 15 |
+| Model total | 60.2 of 70 |
 | Repo scan on a clean clone | 15 of 15 |
 
 ## Setup
@@ -54,7 +54,7 @@ Put the organizers' file `india_climate_train.nc` in a folder named `data/`. It 
 The graded server needs only what is in this repo. The dashboard also needs the data file, for its starting weather.
 If the graded server is not running, the dashboard runs the same model itself and says so on screen.
 
-The server averages every `model/varuna*.pt` it finds. The four in this repo were trained like this, each to its own
+The server averages every `model/varuna*.pt` it finds. The five in this repo were trained like this, each to its own
 folder, then copied into `model/`:
 
 ```
@@ -62,6 +62,7 @@ python training/train.py --epochs 14 12 8                                       
 python training/train.py --epochs 14 12 0 --seed 2 --out runs/b                         # varuna_b.pt
 python training/train.py --epochs 14 12 0 --seed 3 --out runs/c                         # varuna_c.pt
 python training/train.py --epochs 14 12 0 --seed 1 --width 128 --blocks 6 --batch 40 --out runs/d   # varuna_d.pt
+python training/train.py --epochs 14 12 0 --seed 4 --width 128 --blocks 6 --batch 40 --out runs/e   # varuna_e.pt
 ```
 
 Then `fit_fade.py`, then `scoreboard.py`. One standard network trains in about 7 minutes on a laptop graphics card, the
@@ -74,8 +75,8 @@ wider one in about 11. The scoreboard and the calibration script need the organi
   is built from 2005 to 2018 only.
 - It sees only through 3 by 3 windows, at most seven per simulated day. So a change can travel at most 7 squares a
   day. No attention, no pooling, no map-wide normalisation.
-- Four separately trained networks are averaged. Each is local, so the average is too. On 2020 and 2021 this added
-  3.0 points over a single network.
+- Five separately trained networks are averaged. Each is local, so the average is too. On 2020 and 2021 this added
+  3.7 points over a single network. The set was chosen on 2019.
 - It is trained on its own output for up to 4 days in a row, with a term in the loss that keeps maps sharp.
 - From day 3 on, the server sends out only a share of the gap from normal (the fade), fitted on 2019.
 - Data split: train 2005 to 2018, tune 2019, final check 2020 and 2021.
@@ -103,7 +104,7 @@ Links can open a view directly, for example `http://127.0.0.1:8050/#tab=finder&d
 | Path | What it is |
 | --- | --- |
 | `serve.py` | The graded server. Two routes only. Imports only `model/`. |
-| `model/` | The network code, four weight files, and a 365-day table of normal weather with the fade. |
+| `model/` | The network code, five weight files, and a 365-day table of normal weather with the fade. |
 | `training/` | Training, the fade fit, a local scoreboard that uses the organizers' scoring code, and the 50-futures check. |
 | `dashboard/` | The map: `index.html`, `app.js`, `style.css`, and `backend.py` on its own port. `lab.py` holds the 50 futures and the Butterfly Finder, `alerts.py` the alert rules and their sources, `exam.py` the physics exam. |
 | `VARUNA_brief.pdf` | The 2-page brief. Its source is `docs/brief.html`. |
