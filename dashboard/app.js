@@ -1284,6 +1284,7 @@ async function runModel() {
 /* ---------- controls ---------- */
 function setTab(tab, quiet) {
   S.tab = tab;
+  if (tab === 'whatif') $('paintMore').open = true;       // the painting controls unfold when they are needed
   if (tab !== 'whatif' && S.tool !== 'look') setTool('look');
   [...$('tabs').children].forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
   if (!quiet) render();

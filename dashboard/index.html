@@ -12,6 +12,10 @@
     <span class="logo">VARUNA</span>
     <span class="tagline">Change the starting weather. Watch what happens.</span>
   </div>
+  <form class="ask" id="ask">
+    <input id="askIn" type="text" autocomplete="off" placeholder="Ask: rain near Kolkata on day 3" aria-label="Ask about the forecast">
+    <button class="btn small" type="submit">Ask</button>
+  </form>
   <div class="chips">
     <span class="chip" id="chipModel">Loading the model</span>
     <span class="chip" id="chipSpeed" title="Time the model took on this laptop's processor. The limit is 5000 ms.">Speed</span>
@@ -41,6 +45,8 @@
       <button id="offWarm" class="btn wide">Warm the Bay of Bengal<small>Official shock: +3 °C and +15% moisture</small></button>
       <button id="offStall" class="btn wide">Stall the Arabian Sea wind<small>Official shock: wind cut by 40%</small></button>
 
+      <details class="more" id="paintMore">
+      <summary>Paint your own change</summary>
       <div class="seg" id="tools">
         <button data-tool="look" class="on">Look</button>
         <button data-tool="brush">Brush</button>
@@ -64,14 +70,11 @@
         <button id="resetShock" class="btn small">Reset all</button>
       </div>
       <p class="hint" id="shockNote"></p>
+      </details>
     </section>
   </aside>
 
   <main class="main">
-    <form class="ask" id="ask">
-      <input id="askIn" type="text" autocomplete="off" placeholder="Ask in plain words, for example: rain near Kolkata on day 3" aria-label="Ask about the forecast">
-      <button class="btn small" type="submit">Ask</button>
-    </form>
     <div class="askout" id="askOut" hidden></div>
     <div class="tabs" id="tabs">
       <button data-tab="forecast" class="on">Forecast<small>what is coming</small></button>
