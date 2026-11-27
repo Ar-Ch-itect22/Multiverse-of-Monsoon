@@ -32,16 +32,16 @@ const PRESETS = [
 /* Colour. Amount fields use one hue from dark (low) to light (high). Fields with a natural middle, and every
    difference map, use two hues around a neutral middle. Nine colours each, one per break. */
 const PAL = {
-  rain: ['#0e1726', '#10294a', '#123f73', '#17599c', '#2377c2', '#4697dd', '#7bb8ee', '#b8dafa', '#f1f8ff'],
-  wind: ['#0e1726', '#0f3338', '#11504c', '#167063', '#22917a', '#43b391', '#7bd2ab', '#b9ecca', '#effcf2'],
-  wet: ['#0e1726', '#221c4c', '#382a78', '#5140a6', '#6d5ecf', '#8e85e6', '#b2aff2', '#d6d5fa', '#f5f5ff'],
-  temp: ['#1e3a8a', '#2f66c4', '#5d9be0', '#a5c8ea', '#e9e4d8', '#f2c38a', '#ee9150', '#dc5a33', '#a8202b'],
-  pres: ['#5b1a8c', '#7f3fb5', '#a877d6', '#d0b8ea', '#e9e4d8', '#f0cf9e', '#e9a85a', '#d97b23', '#a85208'],
-  dWarm: ['#9fd4ff', '#4f9ee6', '#2a69b3', '#1b3c6b', '#161d2b', '#6e2a2c', '#b53e3c', '#e6604f', '#ffb0a0'],
-  count: ['#0e1726', '#2b1d1a', '#4a2618', '#703114', '#9a3f10', '#c4550f', '#e7761c', '#f6a94a', '#fde3a8'],
-  gold: ['#0e1726', '#2a2413', '#473913', '#6b5210', '#93700d', '#bd9110', '#e2b523', '#f6d860', '#fff6c8'],
-  mist: ['#0e1726', '#1a2a3a', '#27404f', '#365866', '#48727e', '#5f8e97', '#7fabb0', '#a8c9cb', '#dbe9e9'],
-  dWet: ['#f6d49a', '#d39d4c', '#9c6c28', '#5c411c', '#161d2b', '#16493f', '#1f7c69', '#31b799', '#98f3da'],
+  rain: ['#f7f9fc', '#dfebf8', '#c2daf3', '#9cc3ea', '#6aa5de', '#3a84cd', '#1e62b3', '#17428c', '#291c68'],
+  wind: ['#f7faf8', '#ddf0e7', '#c0e4d3', '#99d4ba', '#69c09e', '#38a781', '#198868', '#106750', '#0b4739'],
+  wet: ['#f9f8fc', '#e7e3f6', '#d0c9ed', '#b4a9e1', '#9587d2', '#7667c1', '#5b4ba9', '#443588', '#2d2161'],
+  temp: ['#1e3a8a', '#2f66c4', '#5d9be0', '#a5c8ea', '#f4f1e8', '#f2c38a', '#ee9150', '#dc5a33', '#a8202b'],
+  pres: ['#5b1a8c', '#7f3fb5', '#a877d6', '#d0b8ea', '#f4f1e8', '#f0cf9e', '#e9a85a', '#d97b23', '#a85208'],
+  count: ['#fbf8f3', '#fbe9d2', '#f8d3a6', '#f4b877', '#ee9a4b', '#e27b28', '#c95f16', '#a2460f', '#6f2e0a'],
+  gold: ['#fbfaf5', '#f6efcf', '#efe1a0', '#e6ce6c', '#dab640', '#c99a1e', '#ab7c12', '#85600f', '#5c420c'],
+  mist: ['#f8f9fa', '#e7ebef', '#d2d9e0', '#b7c2cd', '#98a7b6', '#798b9d', '#5d6f82', '#455465', '#303b48'],
+  dWarm: ['#1f4fa3', '#4f82cf', '#8fb3e6', '#cddcf2', '#f7f6f2', '#f6d2c8', '#eb9d8a', '#d75f4b', '#a82a22'],
+  dWet: ['#7a4a12', '#b07a2e', '#d8ad6a', '#eedbb5', '#f7f6f2', '#c9eadf', '#8fd3bd', '#3fae92', '#12755e'],
 };
 
 function hex(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
@@ -185,14 +185,14 @@ function haloLine(ctx, segs, sx, sy, color, width, dash) {
   if (!segs.length) return;
   pathSegs(ctx, segs, sx, sy);
   ctx.lineCap = 'round'; ctx.setLineDash([]);
-  ctx.strokeStyle = 'rgba(6,10,18,0.7)'; ctx.lineWidth = width + 2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = width + 2; ctx.stroke();
   ctx.setLineDash(dash || []); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
   ctx.setLineDash([]);
 }
 function haloText(ctx, txt, x, y, align) {
   ctx.textAlign = align || 'left'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(6,10,18,0.85)'; ctx.lineWidth = 3; ctx.strokeText(txt, x, y);
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(txt, x, y);
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = 3; ctx.strokeText(txt, x, y);
+  ctx.fillStyle = 'rgba(20,23,28,0.9)'; ctx.fillText(txt, x, y);
 }
 
 /* ---------- map drawing ---------- */
@@ -248,29 +248,29 @@ function drawMap(P, vals, sc, o) {
     P.octx.putImageData(P.img, 0, 0);
     ctx.imageSmoothingEnabled = S.smooth; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(P.off, 0, 0, w, h);
-  } else { ctx.fillStyle = '#0c1320'; ctx.fillRect(0, 0, w, h); }
+  } else { ctx.fillStyle = '#f1f0ec'; ctx.fillRect(0, 0, w, h); }
   if (o.veil) {
-    ctx.fillStyle = 'rgba(122,130,146,0.86)';
+    ctx.fillStyle = 'rgba(156,160,166,0.82)';
     for (let i = 0; i < NLAT; i++) for (let j = 0; j < NLON; j++) if (o.veil[i * NLON + j]) ctx.fillRect(j * sx, (NLAT - 1 - i) * sy, sx + 0.5, sy + 0.5);
   }
 
   // latitude and longitude lines every 5 degrees
-  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(8,12,20,0.22)'; ctx.beginPath();
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(20,23,28,0.10)'; ctx.beginPath();
   for (let lon = 70; lon <= 100; lon += 5) { const x = Math.round((lon - 65) * sx) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, h); }
   for (let lat = 10; lat <= 35; lat += 5) { const y = Math.round((38 - lat) * sy) + 0.5; ctx.moveTo(0, y); ctx.lineTo(w, y); }
   ctx.stroke();
 
-  if (o.heavy && vals) haloLine(ctx, contour(pad(vals, false), 10), sx, sy, '#ff7ab6', 1.3);
-  haloLine(ctx, COAST, sx, sy, 'rgba(255,255,255,0.94)', 1.1);
+  if (o.heavy && vals) haloLine(ctx, contour(pad(vals, false), 10), sx, sy, '#c2185b', 1.3);
+  haloLine(ctx, COAST, sx, sy, 'rgba(20,23,28,0.8)', 1.1);
 
   if (o.mask) {
     if (o.fill) {
-      ctx.fillStyle = 'rgba(255,212,59,0.16)';
+      ctx.fillStyle = 'rgba(249,115,22,0.14)';
       for (let i = 0; i < NLAT; i++) for (let j = 0; j < NLON; j++) if (S.mask[i * NLON + j] > 0.5) ctx.fillRect(j * sx, (NLAT - 1 - i) * sy, sx + 0.5, sy + 0.5);
     }
-    haloLine(ctx, S.maskSegs, sx, sy, '#ffd43b', 1.8);
+    haloLine(ctx, S.maskSegs, sx, sy, '#f97316', 2);
   }
-  if (o.reach > 0) haloLine(ctx, contour(pad(S.dist, false), o.reach + 0.5), sx, sy, 'rgba(255,255,255,0.9)', 1.2, [5, 5]);
+  if (o.reach > 0) haloLine(ctx, contour(pad(S.dist, false), o.reach + 0.5), sx, sy, 'rgba(20,23,28,0.85)', 1.2, [5, 5]);
   if (o.lines) for (const l of o.lines) haloLine(ctx, l.segs, sx, sy, l.color, l.width, l.dash);
 
   if (o.wind) {
@@ -285,7 +285,7 @@ function drawMap(P, vals, sc, o) {
         x1, y1, x1 - hd * (ux * c + uy * s), y1 - hd * (uy * c - ux * s));
     }
     ctx.lineCap = 'round';
-    for (const [col, lw] of [['rgba(6,10,18,0.55)', 2.8], ['rgba(255,255,255,0.9)', 1.1]]) {
+    for (const [col, lw] of [['rgba(255,255,255,0.75)', 2.8], ['rgba(20,23,28,0.85)', 1.1]]) {
       ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
       for (let k = 0; k < lines.length; k += 4) { ctx.moveTo(lines[k], lines[k + 1]); ctx.lineTo(lines[k + 2], lines[k + 3]); }
       ctx.stroke();
@@ -300,8 +300,8 @@ function drawMap(P, vals, sc, o) {
     for (const c of CITIES) {
       if (!c[3]) continue;
       const x = (c[2] - 65) * sx, y = (38 - c[1]) * sy;
-      ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 6.3); ctx.fillStyle = 'rgba(6,10,18,0.9)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 6.3); ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 6.3); ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 6.3); ctx.fillStyle = '#14171c'; ctx.fill();
       haloText(ctx, c[0], c[3] === 'l' ? x - 5 : x + 5, y, c[3] === 'l' ? 'right' : 'left');
     }
   }
@@ -309,20 +309,20 @@ function drawMap(P, vals, sc, o) {
     ctx.font = '600 11px "Segoe UI", system-ui, sans-serif'; ctx.textBaseline = 'middle';
     for (const pt of o.ports) {
       const x = (pt.p % NLON + 0.5) * sx, y = (NLAT - Math.floor(pt.p / NLON) - 0.5) * sy;
-      ctx.beginPath(); ctx.arc(x, y, 5, 0, 6.3); ctx.fillStyle = 'rgba(6,10,18,0.9)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(x, y, 3.4, 0, 6.3); ctx.fillStyle = '#ffd43b'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 6.3); ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 3.4, 0, 6.3); ctx.fillStyle = '#f97316'; ctx.fill();
       if (!CITIES.some((c) => c[0] === pt.name && c[3])) haloText(ctx, pt.name, x + 8, y - 9, 'left');
     }
   }
   if (o.box) {
     const x = o.box.j0 * sx, y = (NLAT - 1 - o.box.i1) * sy, bw = (o.box.j1 - o.box.j0 + 1) * sx, bh = (o.box.i1 - o.box.i0 + 1) * sy;
-    ctx.strokeStyle = 'rgba(6,10,18,0.9)'; ctx.lineWidth = 4; ctx.strokeRect(x, y, bw, bh);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(x, y, bw, bh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 4; ctx.strokeRect(x, y, bw, bh);
+    ctx.strokeStyle = '#14171c'; ctx.lineWidth = 2; ctx.strokeRect(x, y, bw, bh);
   }
   if (o.sel) {
     const x = o.sel.j * sx, y = (NLAT - 1 - o.sel.i) * sy;
-    ctx.strokeStyle = 'rgba(6,10,18,0.9)'; ctx.lineWidth = 3.5; ctx.strokeRect(x, y, sx, sy);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, sx, sy);
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 3.5; ctx.strokeRect(x, y, sx, sy);
+    ctx.strokeStyle = '#14171c'; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, sx, sy);
   }
 }
 
@@ -401,12 +401,12 @@ function specCompare() {
       if (agree[p] < 45) veil[p] = 1; else info.solid++;
     }
   }
-  const what = f.name + ', ' + f.unit, heavy = f.key === 'tp' ? ' Pink line: heavy rain, 10 mm a day or more.' : '';
+  const what = f.name + ', ' + f.unit, heavy = f.key === 'tp' ? ' Red line: heavy rain, 10 mm a day or more.' : '';
   const maps = [
     { title: V.titles[0], sub: what, vals: va, scale: f.scale, tick, honest: 'Model forecast, about 100 km squares, daily.' + heavy + (f.note || ''),
       opts: { heavy: f.key === 'tp', wind: windOpt(V.A, f), mask: showMask, fill: true, sel: S.sel } },
     { title: V.titles[1], sub: what, vals: vb, scale: f.scale, tick, empty: V.emptyB,
-      honest: fc ? 'Recorded weather from the organizers\' data. ' + seenText() : 'Modelled what-if, not proof of real-world effect. Yellow line: your region.',
+      honest: fc ? 'Recorded weather from the organizers\' data. ' + seenText() : 'Modelled what-if, not proof of real-world effect. Orange line: your region.',
       opts: { heavy: f.key === 'tp', wind: windOpt(V.B, f), mask: showMask, sel: S.sel } },
     { title: V.titles[2], sub: 'difference, ' + f.unit, vals: vc, scale: dsc, tick: signedTick,
       empty: fc ? 'Nothing to compare for this day.' : 'The difference shows up here once you make a change.',
@@ -458,7 +458,7 @@ function specFutures() {
       honest: (below ? '45 of the 50 futures stay above this.' : '45 of the 50 futures stay below this.') + ' Use it to plan for the worse end, not as the forecast.',
       opts: { heavy: f.key === 'tp', sel: S.sel } },
     { title: 'How much the futures disagree', sub: 'spread, ' + f.unit, vals: spread, scale: ssc, tick,
-      honest: 'Bright: the futures split here, so trust the forecast less.' + chk, opts: { sel: S.sel } },
+      honest: 'Dark: the futures split here, so trust the forecast less.' + chk, opts: { sel: S.sel } },
   ];
   const tip = (p) => [['Futures with ' + line, cnt[p] + ' of ' + F.runs], ['Plain forecast', fmt(f.get(R.A, t * STEP, p)) + ' ' + f.unit],
     ['9 in 10 futures', fmt(low[p]) + ' to ' + fmt(high[p])], ['Spread', '±' + fmt(spread[p])]];
@@ -495,8 +495,8 @@ function specFinder() {
   const box = { i0: Math.max(0, S.sel.i - r), i1: Math.min(NLAT - 1, S.sel.i + r), j0: Math.max(0, S.sel.j - r), j1: Math.min(NLON - 1, S.sel.j + r) };
   const where = placeText(S.sel.i, S.sel.j), goal = f.name.toLowerCase() + ' ' + where + ' on ' + dayText(t);
   const mapA = { title: 'Model forecast', sub: f.name + ', ' + f.unit, vals: va, scale: f.scale, tick,
-    honest: 'White box: the outcome we ask about. Click any square to move it.',
-    opts: { heavy: f.key === 'tp', wind: windOpt(R.A, f), box, lines: X && !X.flat ? [{ segs: X.patchSegs, color: '#ffd43b', width: 1.8 }] : null } };
+    honest: 'Black box: the outcome we ask about. Click any square to move it.',
+    opts: { heavy: f.key === 'tp', wind: windOpt(R.A, f), box, lines: X && !X.flat ? [{ segs: X.patchSegs, color: '#f97316', width: 2 }] : null } };
   const setFacts = (rows, hint) => { $('changeTitle').textContent = 'Butterfly Finder: ' + goal; $('changeBody').innerHTML = rows; $('changeHint').textContent = hint; };
   let msg = null;
   if (f.local) msg = 'This field is worked out in the page only. Pick one of the first seven fields for this tab.';
@@ -511,14 +511,14 @@ function specFinder() {
   let dm = 0;
   for (let p = 0; p < CELLS; p++) { score[p] = X.score[p] * 100; if (Math.abs(X.diff[p]) > dm) dm = Math.abs(X.diff[p]); }
   const dsc = diffScale(nice(Math.max(dm, f.notice * 2)), PAL[f.dpal]);
-  const patchLine = { segs: X.patchSegs, color: '#ffd43b', width: 1.8 };
-  const reach = { segs: contour(pad(X.dist, false), S.meta.reach * t + 0.5), color: 'rgba(255,255,255,0.9)', width: 1.2, dash: [5, 5] };
+  const patchLine = { segs: X.patchSegs, color: '#f97316', width: 2 };
+  const reach = { segs: contour(pad(X.dist, false), S.meta.reach * t + 0.5), color: 'rgba(20,23,28,0.85)', width: 1.2, dash: [5, 5] };
   const maps = [mapA,
     { title: 'What it depends on', sub: 'start day, % of the strongest square', vals: score, scale: SCORE_SCALE, tick,
-      honest: 'Model sensitivity, not proven cause. Brighter squares of the start day matter more for the outcome. Yellow line: the patch we test. Dashed line: the furthest the model can reach.',
+      honest: 'Model sensitivity, not proven cause. Darker squares of the start day matter more for the outcome. Orange line: the patch we test. Dashed line: the furthest the model can reach.',
       opts: { box, lines: [patchLine, reach] } },
     { title: 'Proof: nudge it and rerun', sub: 'difference on ' + dayText(t) + ', ' + f.unit, vals: X.diff, scale: dsc, tick: signedTick,
-      honest: 'A real model rerun with the yellow patch nudged, minus the plain forecast. ' + (f.dpal === 'dWet' ? 'Brown: drier. Green: wetter.' : 'Blue: lower. Red: higher.'),
+      honest: 'A real model rerun with the orange patch nudged, minus the plain forecast. ' + (f.dpal === 'dWet' ? 'Brown: drier. Green: wetter.' : 'Blue: lower. Red: higher.'),
       opts: { box, lines: [patchLine] } },
   ];
   const tip = (p) => [['Forecast', fmt(va[p]) + ' ' + f.unit], ['Importance', score[p].toFixed(0) + '% of the strongest'], ['Change in the rerun', signed(X.diff[p], 2)]];
@@ -606,9 +606,9 @@ function specRoute() {
   const setFacts = (rows, hint) => { $('changeTitle').textContent = 'Sea route: ' + names + ', ' + dayText(t); $('changeBody').innerHTML = rows; $('changeHint').textContent = hint; };
   const limits = 'Uses the wind of the chosen day only: no waves, tides, currents, depth or shipping lanes. A square-by-square sketch, not a navigable route.';
   const ports = [a, b].filter((p) => p >= 0).map((p, k) => ({ p, name: PORTS[k ? S.portB : S.portA][0] }));
-  const lines = short ? [{ segs: pathSegsOf(short), color: 'rgba(255,255,255,0.95)', width: 1.6, dash: [5, 5] }, { segs: pathSegsOf(smart), color: '#ffd43b', width: 2.4 }] : null;
+  const lines = short ? [{ segs: pathSegsOf(short), color: 'rgba(20,23,28,0.85)', width: 1.6, dash: [5, 5] }, { segs: pathSegsOf(smart), color: '#f97316', width: 2.6 }] : null;
   const mapA = { title: 'Wind forecast and the two routes', sub: 'Wind speed, m/s, ' + dayText(t), vals: va, scale: f.scale, tick,
-    honest: 'Yellow: the wind-aware route. Dashed white: the shortest route. ' + limits, opts: { wind: { arr: R.A, o }, lines, ports } };
+    honest: 'Orange: the wind-aware route. Dashed black: the shortest route. ' + limits, opts: { wind: { arr: R.A, o }, lines, ports } };
   const F = S.fut && S.fut.forRun === R.id ? S.fut : null;
   let mapB, mapC, cnt = null;
   if (F) {
@@ -942,18 +942,18 @@ function drawPlace() {
   ctx.font = '10.5px "Segoe UI", system-ui, sans-serif'; ctx.textBaseline = 'middle';
   for (let k = 0; k <= 3; k++) {
     const v = lo + (hi - lo) * k / 3, y = Math.round(Y(v)) + 0.5;
-    ctx.strokeStyle = '#1e2a44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(CHART.L, y); ctx.lineTo(w - CHART.R, y); ctx.stroke();
-    ctx.fillStyle = '#7a87a1'; ctx.textAlign = 'right'; ctx.fillText(fmt(v, hi - lo < 5 ? 1 : 0), CHART.L - 6, y);
+    ctx.strokeStyle = '#eceae4'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(CHART.L, y); ctx.lineTo(w - CHART.R, y); ctx.stroke();
+    ctx.fillStyle = '#8a93a0'; ctx.textAlign = 'right'; ctx.fillText(fmt(v, hi - lo < 5 ? 1 : 0), CHART.L - 6, y);
   }
   ctx.textAlign = 'center';
-  for (let t = 0; t <= n; t++) { ctx.fillStyle = t === S.day ? '#e9eef7' : '#7a87a1'; ctx.fillText(t === 0 ? 'Start' : '+' + t, X(t), h - 9); }
-  ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let t = 0; t <= n; t++) { ctx.fillStyle = t === S.day ? '#14171c' : '#8a93a0'; ctx.fillText(t === 0 ? 'Start' : '+' + t, X(t), h - 9); }
+  ctx.strokeStyle = 'rgba(20,23,28,0.25)'; ctx.lineWidth = 1; ctx.beginPath();
   ctx.moveTo(Math.round(X(S.day)) + 0.5, CHART.T); ctx.lineTo(Math.round(X(S.day)) + 0.5, CHART.T + ph); ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(90,176,255,0.22)'; ctx.lineWidth = 1; ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(23,87,230,0.16)'; ctx.lineWidth = 1; ctx.lineJoin = 'round';
   for (const g of ghosts) { ctx.beginPath(); g.forEach((v, t) => (t ? ctx.lineTo(X(t), Y(v)) : ctx.moveTo(X(t), Y(v)))); ctx.stroke(); }
 
-  const colB = wi ? '#ffb454' : '#e9eef7';
+  const colB = wi ? '#e2781b' : '#14171c';
   const line = (s, col, dash) => {
     if (!s.length) return;
     ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.setLineDash(dash || []); ctx.beginPath();
@@ -961,18 +961,18 @@ function drawPlace() {
     ctx.stroke(); ctx.setLineDash([]);
     s.forEach((v, t) => {
       const r = t === S.day ? 5 : 3;
-      ctx.beginPath(); ctx.arc(X(t), Y(v), r + 2, 0, 6.3); ctx.fillStyle = '#111a2a'; ctx.fill();
+      ctx.beginPath(); ctx.arc(X(t), Y(v), r + 2, 0, 6.3); ctx.fillStyle = '#ffffff'; ctx.fill();
       ctx.beginPath(); ctx.arc(X(t), Y(v), r, 0, 6.3); ctx.fillStyle = col; ctx.fill();
     });
   };
   line(b, colB, wi ? null : [5, 4]);
-  line(a, '#5ab0ff');
+  line(a, '#1757e6');
 
   const pl = place(S.sel.i, S.sel.j), nameA = wi ? 'Without your change' : fu ? 'Plain forecast' : 'Model forecast', nameB = wi ? 'With your change' : 'What really happened';
   $('placeTitle').textContent = (pl.near ? 'Near ' + pl.near + ' (' + pl.coords + ')' : pl.coords) + ': ' + f.name.toLowerCase() + ', ' + f.unit;
-  let html = '<span><i style="border-color:#5ab0ff"></i>' + nameA + ' <b>' + fmt(a[S.day]) + '</b></span>';
+  let html = '<span><i style="border-color:#1757e6"></i>' + nameA + ' <b>' + fmt(a[S.day]) + '</b></span>';
   if (b.length) html += '<span><i class="' + (wi ? '' : 'dash') + '" style="border-color:' + colB + '"></i>' + nameB + ' <b>' + (S.day < b.length ? fmt(b[S.day]) : 'none') + '</b></span>';
-  if (ghosts.length) html += '<span><i style="border-color:rgba(90,176,255,0.5);border-top-width:1px"></i>' + ghosts.length + ' other futures</span>';
+  if (ghosts.length) html += '<span><i style="border-color:rgba(23,87,230,0.45);border-top-width:1px"></i>' + ghosts.length + ' other futures</span>';
   $('placeLegend').innerHTML = html + '<span>on ' + dayText(S.day) + '</span>';
 }
 
@@ -1282,8 +1282,18 @@ async function runModel() {
 }
 
 /* ---------- controls ---------- */
+// The question each tab answers, shown as the page headline.
+const HERO = {
+  forecast: ['What is <em>coming</em>?', "The model's forecast next to what really happened, day by day."],
+  futures: ['How <em>sure</em> are we?', 'Fifty futures from slightly different starts. Where they agree, trust the forecast more.'],
+  finder: ['What does it <em>depend</em> on?', "Pick an outcome. See which parts of today's weather it hangs on, then watch us test it."],
+  alerts: ['Who should <em>act</em>?', 'Plain rules for five roles, checked in every one of the fifty futures.'],
+  route: ['Which way around the <em>wind</em>?', 'The shortest sea route against one that avoids strong wind.'],
+  whatif: ['What if we <em>change</em> it?', 'Paint a region, set a change, and the model reruns at once.'],
+};
 function setTab(tab, quiet) {
   S.tab = tab;
+  $('heroTitle').innerHTML = HERO[tab][0]; $('heroSub').textContent = HERO[tab][1];
   if (tab === 'whatif') $('paintMore').open = true;       // the painting controls unfold when they are needed
   if (tab !== 'whatif' && S.tool !== 'look') setTool('look');
   [...$('tabs').children].forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));

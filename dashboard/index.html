@@ -8,20 +8,31 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">
-    <span class="logo">VARUNA</span>
-    <span class="tagline">Change the starting weather. Watch what happens.</span>
-  </div>
+  <div class="brand"><span class="logo">Varuna</span></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="forecast" class="on">Forecast<small>what is coming</small></button>
+    <button data-tab="futures">50 futures<small>how sure are we</small></button>
+    <button data-tab="finder">Butterfly Finder<small>what does it depend on</small></button>
+    <button data-tab="alerts">Alerts<small>who should act</small></button>
+    <button data-tab="route">Sea route<small>around the wind</small></button>
+    <button data-tab="whatif">What-if<small>change it yourself</small></button>
+  </nav>
+  <span class="chip" id="chipSpeed" title="Time the model took on this laptop's processor. The limit is 5000 ms.">Starting</span>
+</header>
+<section class="hero">
+  <span class="eyebrow">Multiverse of Monsoon, Track 2</span>
+  <h1 id="heroTitle">What is <em>coming</em>?</h1>
+  <p id="heroSub">The model's forecast next to what really happened, day by day.</p>
   <form class="ask" id="ask">
-    <input id="askIn" type="text" autocomplete="off" placeholder="Ask: rain near Kolkata on day 3" aria-label="Ask about the forecast">
-    <button class="btn small" type="submit">Ask</button>
+    <input id="askIn" type="text" autocomplete="off" placeholder="Ask in plain words: rain near Kolkata on day 3" aria-label="Ask about the forecast">
+    <button class="btn" type="submit">Ask</button>
   </form>
+  <div class="askout" id="askOut" hidden></div>
   <div class="chips">
     <span class="chip" id="chipModel">Loading the model</span>
-    <span class="chip" id="chipSpeed" title="Time the model took on this laptop's processor. The limit is 5000 ms.">Speed</span>
     <span class="chip" id="chipYear">Year</span>
   </div>
-</header>
+</section>
 <div class="banner" id="banner" hidden></div>
 
 <div class="layout">
@@ -75,30 +86,12 @@
   </aside>
 
   <main class="main">
-    <div class="askout" id="askOut" hidden></div>
-    <div class="tabs" id="tabs">
-      <button data-tab="forecast" class="on">Forecast<small>what is coming</small></button>
-      <button data-tab="futures">50 futures<small>how sure are we</small></button>
-      <button data-tab="finder">Butterfly Finder<small>what does it depend on</small></button>
-      <button data-tab="alerts">Alerts<small>who should act</small></button>
-      <button data-tab="route">Sea route<small>around the wind</small></button>
-      <button data-tab="whatif">What-if<small>change it yourself</small></button>
-    </div>
     <div class="tools" id="tabTools"></div>
 
     <div class="maps">
       <figure class="map" id="mapA"></figure>
       <figure class="map" id="mapB"></figure>
       <figure class="map" id="mapC"></figure>
-    </div>
-
-    <div class="timeline">
-      <button id="play" class="btn round" title="Play or pause (space bar)">&#9654;</button>
-      <div class="track">
-        <input type="range" id="day" min="0" max="10" value="3" step="1" aria-label="day of the forecast">
-        <div class="dticks" id="dticks"></div>
-      </div>
-      <div class="daylabel" id="dayLabel"></div>
     </div>
 
     <div class="cards">
@@ -121,6 +114,15 @@
         <div class="facts" id="examBody"></div>
         <div id="scores"></div>
       </section>
+    </div>
+
+    <div class="timeline">
+      <button id="play" class="btn round" title="Play or pause (space bar)">&#9654;</button>
+      <div class="track">
+        <input type="range" id="day" min="0" max="10" value="3" step="1" aria-label="day of the forecast">
+        <div class="dticks" id="dticks"></div>
+      </div>
+      <div class="daylabel" id="dayLabel"></div>
     </div>
   </main>
 </div>
