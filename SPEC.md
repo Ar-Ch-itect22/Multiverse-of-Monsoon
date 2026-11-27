@@ -24,7 +24,8 @@ watch what happens.
 
 ## Model rules
 
-- Local view only: 3x3 convolutions, at most 8 cells of reach per simulated day (currently 6).
+- Local view only: 3x3 convolutions, at most 8 cells of reach per simulated day (currently 7).
+- The server averages every `model/varuna*.pt`. Each one must be a local network that obeys the rules above.
 - Banned inside the network: attention, pooling, BatchNorm, GroupNorm, InstanceNorm, Fourier layers.
 - Predict the change from the seasonal normal. Rain is handled as log(1 + rain) and is never negative.
 - Data split: train 2005 to 2018, tune 2019, final check 2020 and 2021. Never tune on the final-check years.

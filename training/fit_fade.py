@@ -33,9 +33,10 @@ SHARES = np.linspace(0.30, 1.0, 29)
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--strength", type=float, default=1.0, help="1 = the fitted fade, 0 = no fade, in between = part of it")
+    ap.add_argument("--model-dir", default=str(ROOT / "model"))
     ap.add_argument("--fade-rain", action="store_true", help="also fade rain (off by default, see the note below)")
     a = ap.parse_args()
-    eng = Engine(ROOT / "model")
+    eng = Engine(Path(a.model_dir))
     ds = xr.open_dataset(DATA)
     x = torch.from_numpy(ds["data"].values.astype("f4"))
     t = ds["time"].values.astype("datetime64[D]")
@@ -76,10 +77,10 @@ def main():
     print("day   " + "  ".join(f"{n:>5}" for n in names))
     for k in range(DAYS):
         print(f"{k + 1:>3}   " + "  ".join(f"{v:5.2f}" for v in fade[k]))
-    d = dict(np.load(ROOT / "model" / "norm.npz"))
+    d = dict(np.load(Path(a.model_dir) / "norm.npz"))
     d["fade"] = fade
-    np.savez(ROOT / "model" / "norm.npz", **d)
-    print("written to model/norm.npz")
+    np.savez(Path(a.model_dir) / "norm.npz", **d)
+    print("written to", Path(a.model_dir) / "norm.npz")
 
 
 if __name__ == "__main__":

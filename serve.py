@@ -18,7 +18,7 @@ from model.net import NC, NLAT, NLON, Engine
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-MODEL_NAME = "varuna-local-v1"
+MODEL_NAME = "varuna-local-v2"
 ENGINE = Engine(Path(__file__).resolve().parent / "model")
 MAX_STEPS = 366                         # the judge asks for 10; longer runs are allowed up to a year
 

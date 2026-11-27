@@ -156,6 +156,7 @@ if __name__ == "__main__":
     ap.add_argument("--baselines", action="store_true")
     ap.add_argument("--years", type=int, nargs="+", default=list(FINAL_YEARS))
     ap.add_argument("--stride", type=int, default=7)
+    ap.add_argument("--model-dir", default="", help="score the model in this folder instead of the one serve.py loads")
     ap.add_argument("--save", default="", help="also write the result to this JSON file (the dashboard reads dashboard/scores.json)")
     a = ap.parse_args()
     yr = (min(a.years), max(a.years))
@@ -164,9 +165,14 @@ if __name__ == "__main__":
     baselines(data, years, doy, clim, yr, a.stride)
     if not a.baselines:
         sys.path.insert(0, str(ROOT))
-        import serve
-        print(f"scoring serve.simulate ({serve.MODEL_NAME})")
-        res = score(serve.simulate, data, years, doy, std, clim, yr, a.stride)
+        if a.model_dir:
+            from model.net import Engine
+            run, name = Engine(Path(a.model_dir)).simulate, a.model_dir
+        else:
+            import serve
+            run, name = serve.simulate, serve.MODEL_NAME
+        print(f"scoring {name}")
+        res = score(run, data, years, doy, std, clim, yr, a.stride)
         if a.save:
-            res.update(model_name=serve.MODEL_NAME, years=list(yr), stride=a.stride)
+            res.update(model_name=name, years=list(yr), stride=a.stride)
             Path(a.save).write_text(json.dumps(res, indent=1))

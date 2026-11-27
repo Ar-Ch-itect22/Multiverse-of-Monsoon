@@ -39,7 +39,7 @@ def smooth_circular(a: np.ndarray, half: int = 15) -> np.ndarray:
     return out / (2 * half + 1)
 
 
-def build(width: int, blocks: int):
+def build(width: int, blocks: int, out: Path = OUT):
     ds = xr.open_dataset(DATA)
     x = ds["data"].values.astype("f4")                                   # [T, 6, H, W] physical units
     st = ds["static"].values.astype("f4")                                # [2, H, W] mask, height in metres
@@ -57,8 +57,8 @@ def build(width: int, blocks: int):
     lat = np.linspace(-1, 1, NLAT, dtype="f4")[:, None].repeat(NLON, 1)
     lon = np.linspace(-1, 1, NLON, dtype="f4")[None, :].repeat(NLAT, 0)
     static = np.stack([st[0], st[1] / 2000.0, lat, lon]).astype("f4")
-    OUT.mkdir(exist_ok=True)
-    np.savez(OUT / "norm.npz", clim=clim, sigma=sigma, static=static, width=width, blocks=blocks)
+    out.mkdir(parents=True, exist_ok=True)
+    np.savez(out / "norm.npz", clim=clim, sigma=sigma, static=static, width=width, blocks=blocks)
     return x, z, years, key, clim, clim_phys, sigma, static
 
 
@@ -68,11 +68,14 @@ def main():
     ap.add_argument("--width", type=int, default=96)
     ap.add_argument("--blocks", type=int, default=5)
     ap.add_argument("--batch", type=int, default=64)
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out", default=str(OUT), help="folder for varuna.pt and norm.npz (default: model/)")
     a = ap.parse_args()
-    torch.manual_seed(0)
-    np.random.seed(0)
+    out = Path(a.out)
+    torch.manual_seed(a.seed)
+    np.random.seed(a.seed)
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    x, z, years, key, clim, clim_phys, sigma, static = build(a.width, a.blocks)
+    x, z, years, key, clim, clim_phys, sigma, static = build(a.width, a.blocks, out)
     T = x.shape[0]
     sig = torch.tensor(sigma, device=dev).view(1, NC, 1, 1)
     X = torch.tensor(x, device=dev)                                      # physical truth
@@ -163,7 +166,7 @@ def main():
             tag = ""
             if score > best:
                 best = score
-                torch.save({k: v.cpu() for k, v in net.state_dict().items()}, OUT / "varuna.pt")
+                torch.save({k: v.cpu() for k, v in net.state_dict().items()}, out / "varuna.pt")
                 tag = "  saved"
             print(f"stage {name} ep {ep:2d}  loss {tot / nb:.4f}  tune skill mean {score:+.4f}  "
                   f"d1 {ss[0]:+.3f} d4 {ss[1]:+.3f} d8 {ss[2]:+.3f}  day4 vs repeat-yesterday {gate:+.3f}  "

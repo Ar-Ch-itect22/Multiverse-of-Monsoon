@@ -29,7 +29,7 @@ FIELD_KEYS = ["tp", "t2m", "wind", "msl", "tcwv", "u10", "v10"]            # dis
 INGREDIENT = ["temperature", "rain", "wind", "wind", "pressure", "moisture"]   # plain name of each model channel
 # Sizes are in "typical day-to-day swings" of each field (t2m, tp, u10, v10, msl, tcwv). Set by training/calibrate_futures.py.
 START_AMP = 0.10                                                            # nudge to the start day
-DAY_MISS = [0.44, 0.65, 0.54, 0.55, 0.47, 0.38]                             # the model's one-day miss, measured on the tuning year
+DAY_MISS = [0.42, 0.64, 0.53, 0.54, 0.45, 0.37]                             # the model's one-day miss, measured on the tuning year
 KICK_SCALE = 1.0                                                            # daily kick = KICK_SCALE * DAY_MISS
 # "how many futures cross this line": direction and levels per display field
 LADDERS = {"tp": (">=", [2.5, 10.0, 25.0, 50.0, 100.0]), "t2m": (">=", [30.0, 35.0, 38.0, 40.0, 42.0]),

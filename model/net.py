@@ -67,6 +67,27 @@ class LocalNet(nn.Module):
         return self.head(self.blocks(self.stem(x)))
 
 
+class Average(nn.Module):
+    """Several separately trained networks; the answer is the mean of theirs. Averaging cancels part of each network's
+    random error. Every member is local, so the mean is local too, and it stays fully deterministic."""
+
+    def __init__(self, nets):
+        super().__init__()
+        self.nets = nn.ModuleList(nets)
+        self.reach = max(n.reach for n in nets)
+
+    def forward(self, x):
+        return torch.stack([n(x) for n in self.nets]).mean(0)
+
+
+def load_net(path: Path) -> LocalNet:
+    """Weights file -> network. Width and depth are read from the weights themselves."""
+    sd = torch.load(path, map_location="cpu")
+    net = LocalNet(sd["stem.weight"].shape[0], len({k.split(".")[1] for k in sd if k.startswith("blocks.")}))
+    net.load_state_dict(sd)
+    return net
+
+
 def doy_planes(key: torch.Tensor) -> torch.Tensor:
     """key [B] in 0..364 -> [B, 2, H, W] planes holding sin and cos of the day of year."""
     ang = 2 * math.pi * key.float() / 365.0
@@ -101,8 +122,8 @@ class Engine:
         self.static = torch.from_numpy(d["static"])        # [4, H, W]
         # share of the gap from normal kept at each day ahead, per field [days, 6]; absent = keep everything
         self.fade = torch.from_numpy(d["fade"]) if "fade" in d.files else None
-        self.net = LocalNet(int(d["width"]), int(d["blocks"]))
-        self.net.load_state_dict(torch.load(Path(folder) / "varuna.pt", map_location="cpu"))
+        nets = [load_net(p) for p in sorted(Path(folder).glob("varuna*.pt"))]     # one file, or several to average
+        self.net = nets[0] if len(nets) == 1 else Average(nets)
         self.net.eval()
 
     def encode(self, x: torch.Tensor, key: int) -> torch.Tensor:
