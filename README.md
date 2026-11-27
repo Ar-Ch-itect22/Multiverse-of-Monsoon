@@ -10,6 +10,18 @@ The 2-page brief is [`VARUNA_brief.pdf`](VARUNA_brief.pdf), at the top of this r
 **To see the dashboard:** it is not hosted on the web. It runs on your own machine from this repo. Put the organizers'
 data file in `data/`, start the two servers listed under "Run" below, and open http://127.0.0.1:8050.
 
+## What it looks like
+
+Every picture is the live dashboard running on the model in this repo. Start days are from 2020 and 2021, years the model never saw.
+
+| | |
+| --- | --- |
+| **Temperature.** The hot week before the rains, forecast next to recorded weather. ![Temperature](docs/img/shot_temp.png) | **Wind.** A cyclone week in the Bay of Bengal, with wind arrows. ![Wind](docs/img/shot_wind.png) |
+| **Moisture.** The monsoon arriving in early June. ![Moisture](docs/img/shot_moisture.png) | **Pressure.** A deep low moving up the west coast. ![Pressure](docs/img/shot_pressure.png) |
+| **50 futures.** How many of 50 runs bring heavy rain, a bad case, and where the runs split. ![50 futures](docs/img/shot_futures.png) | **Butterfly Finder.** What rain near Kolkata on day 4 depends on, and the rerun that tests it. ![Butterfly Finder](docs/img/shot_finder.png) |
+| **Alerts.** Farmer rules checked in each of the 50 futures. ![Alerts](docs/img/shot_alerts.png) | **Sea route.** The shortest path against one that avoids strong wind. ![Sea route](docs/img/shot_route.png) |
+| **What-if.** The official warm Bay of Bengal shock: without, with, and the difference. ![What-if](docs/img/shot_whatif.png) | |
+
 ## What is in here
 
 - **A forecast model.** It takes the last 3 days on a 32 by 36 grid and rolls forward day by day. It is five small
