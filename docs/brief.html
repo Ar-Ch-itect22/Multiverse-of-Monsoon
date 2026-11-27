@@ -7,165 +7,169 @@
   @page { size: A4; margin: 10mm 12mm; }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
-  body { font: 8.5pt/1.36 "Segoe UI", Arial, sans-serif; color: #17202e; }
+  body { font: 8.2pt/1.34 "Segoe UI", Arial, sans-serif; color: #17202e; }
   .page { height: 276mm; overflow: hidden; page-break-after: always; }
   .page:last-child { page-break-after: auto; }
   header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.6pt solid #17406e; padding-bottom: 3pt; margin-bottom: 5pt; }
-  h1 { font-size: 17pt; margin: 0; letter-spacing: 0.06em; color: #0f2c4f; }
-  h1 small { font-size: 9.5pt; letter-spacing: 0; font-weight: 400; color: #3d4b5f; margin-left: 6pt; }
+  h1 { font-size: 18pt; margin: 0; letter-spacing: 0.06em; color: #0f2c4f; }
+  h1 small { font-size: 10pt; letter-spacing: 0; font-weight: 400; color: #3d4b5f; margin-left: 6pt; }
   .meta { font-size: 7.6pt; color: #4a5669; text-align: right; line-height: 1.3; }
-  .lead { font-size: 9.2pt; margin: 0 0 5pt; }
+  .lead { font-size: 9.3pt; line-height: 1.4; margin: 0 0 6pt; }
+  .lead b { color: #0f2c4f; }
+  .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4pt; margin: 0 0 7pt; }
+  .tile { border: 0.6pt solid #b9c7da; border-radius: 4pt; background: #f1f5fa; padding: 4pt 5pt; text-align: center; }
+  .tile b { display: block; font-size: 14.5pt; color: #0f2c4f; line-height: 1.15; }
+  .tile span { font-size: 6.9pt; color: #44505f; line-height: 1.25; display: block; }
   .cols { column-count: 2; column-gap: 7mm; }
-  h2 { font-size: 10pt; color: #17406e; margin: 6pt 0 2pt; break-after: avoid; }
+  h2 { font-size: 10.2pt; color: #17406e; margin: 6pt 0 2.5pt; break-after: avoid; }
   h2:first-child { margin-top: 0; }
   p { margin: 0 0 3.5pt; }
   ul { margin: 0 0 3.5pt; padding-left: 10pt; }
-  li { margin-bottom: 1.6pt; }
+  li { margin-bottom: 2.4pt; break-inside: avoid; }
   b { color: #0f2c4f; }
-  table { border-collapse: collapse; width: 100%; margin: 2pt 0 4pt; font-size: 8pt; break-inside: avoid; }
-  th, td { border-bottom: 0.5pt solid #c3ccd8; padding: 1.6pt 3pt; text-align: left; vertical-align: top; }
+  table { border-collapse: collapse; width: 100%; margin: 2pt 0 4pt; font-size: 7.8pt; break-inside: avoid; }
+  th, td { border-bottom: 0.5pt solid #c3ccd8; padding: 1.7pt 3pt; text-align: left; vertical-align: top; }
   th { background: #eaf0f7; color: #0f2c4f; font-weight: 600; }
   td.n, th.n { text-align: right; white-space: nowrap; }
-  .pipe { display: flex; align-items: stretch; gap: 3pt; margin: 3pt 0 5pt; font-size: 7.4pt; text-align: center; break-inside: avoid; }
-  .pipe div { flex: 1; border: 0.6pt solid #8fa3bd; border-radius: 3pt; padding: 2.5pt 2pt; background: #f3f6fa; }
-  .pipe div.core { background: #dfeaf7; border-color: #17406e; flex: 1.35; }
+  .pipe { display: flex; align-items: stretch; gap: 3pt; margin: 0 0 6pt; font-size: 7.6pt; text-align: center; }
+  .pipe div { flex: 1; border: 0.6pt solid #8fa3bd; border-radius: 3pt; padding: 3pt 3pt; background: #f3f6fa; }
+  .pipe div.core { background: #dfeaf7; border-color: #17406e; flex: 1.4; }
   .pipe span { align-self: center; color: #17406e; font-weight: 700; }
   .note { font-size: 7.5pt; color: #4a5669; }
-  figure { margin: 0 0 4pt; display: flex; gap: 4mm; align-items: center; }
-  figure img { display: block; width: 59%; border-radius: 3pt; }
-  .p1 { font-size: 8.1pt; line-height: 1.31; }
-  .p1 table { font-size: 7.7pt; }
-  .p1 .lead { font-size: 8.7pt; }
-  .p2 { font-size: 8.2pt; line-height: 1.33; }
-  .p2 table { font-size: 7.8pt; }
-  figcaption { flex: 1; font-size: 7.6pt; line-height: 1.33; color: #2c3a4f; }
+  .three { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 5pt; margin: 0 0 6pt; }
+  .three div { border: 0.6pt solid #b9c7da; border-radius: 4pt; padding: 4pt 7pt; background: #f6f8fb; font-size: 8pt; }
+  .three div b { display: block; font-size: 7.2pt; letter-spacing: 0.08em; text-transform: uppercase; color: #5b6a7e; margin-bottom: 1pt; }
+  .three div.star { background: #dfeaf7; border-color: #17406e; }
+  .three div.star b { color: #17406e; }
+  figure { margin: 0 0 5pt; display: flex; gap: 4mm; align-items: center; }
+  figure img { display: block; width: 57%; border-radius: 3pt; border: 0.5pt solid #d5dbe4; }
+  figcaption { flex: 1; font-size: 7.9pt; line-height: 1.34; color: #232f40; }
+  figcaption h3 { font-size: 10pt; color: #17406e; margin: 0 0 2pt; }
+  .proof { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3pt; margin: 3pt 0; }
+  .proof div { border: 0.6pt solid #17406e; border-radius: 3pt; background: #f1f5fa; padding: 2.5pt 3pt; text-align: center; font-size: 6.8pt; color: #44505f; line-height: 1.2; }
+  .proof div b { display: block; font-size: 11pt; }
   .foot { border-top: 0.5pt solid #c3ccd8; margin-top: 4pt; padding-top: 2.5pt; font-size: 7.3pt; color: #4a5669; }
+  .p1 { font-size: 8.9pt; line-height: 1.42; }
+  .p1 table { font-size: 8.4pt; }
+  .p1 .note { font-size: 8pt; }
+  .p1 li { margin-bottom: 3.4pt; }
+  .p2 { font-size: 7.9pt; line-height: 1.32; }
+  .p2 table { font-size: 7.5pt; }
 </style>
 </head>
 <body>
 
-<!-- ============================== PAGE 1 ============================== -->
+<!-- ============================== PAGE 1: ENGINEERING ============================== -->
 <section class="page p1">
 <header>
   <h1>VARUNA <small>a weather model for India that you can question</small></h1>
   <div class="meta">Team Ship Happens · Track 2, Multiverse of Monsoon<br>github.com/Ar-Ch-itect22/Multiverse-of-Monsoon</div>
 </header>
-<p class="lead">VARUNA takes the last three days of India's weather and rolls it forward day by day. You can change the starting weather anywhere on the map and see what the model says happens next. This page covers the model. Page 2 covers the map and who it helps. Every number here was measured on 2020 and 2021, two years the model never saw during training or tuning.</p>
+<p class="lead"><b>Forecast. Experiment. Understand.</b> VARUNA is an interactive neural weather simulator for India. It forecasts the next 10 days and then goes further: you can change the starting weather and see the alternative future, explore 50 possible futures, and trace which regions and weather fields a future event depends on. Five lightweight networks produce a 10-day forecast in about 0.4 s on a laptop processor, with no outside weather service and no internet. Scored with the organisers' own scoring functions on 103 held-out windows, it reaches 60.2 of 70 model points.</p>
 
-<div class="cols">
-<h2>1. Model design</h2>
+<div class="tiles">
+  <div class="tile"><b>60.2 / 70</b><span>model score, our own run of the organisers' scoring</span></div>
+  <div class="tile"><b>29.4 / 30</b><span>forecast error, the largest single part</span></div>
+  <div class="tile"><b>0.4 s</b><span>10-day forecast on a laptop processor (limit 5 s)</span></div>
+  <div class="tile"><b>103 / 103</b><span>test windows with valid output</span></div>
+  <div class="tile"><b>50 futures</b><span>explored in about 1.3 s</span></div>
+  <div class="tile"><b>17 MB</b><span>five networks, 4.5 million weights</span></div>
+</div>
+
+<h2>Model architecture</h2>
 <div class="pipe">
   <div>Last 3 days, as the gap from normal weather for that day of year (18 maps)</div><span>+</span>
   <div>Land/sea, height, latitude, longitude, day of year (6 maps)</div><span>&rarr;</span>
-  <div class="core">3&times;3 conv, then 5 or 6 blocks: 3&times;3 conv, per-square norm, 1&times;1 widen, 1&times;1 narrow. Five copies, averaged.</div><span>&rarr;</span>
-  <div>Change in the gap for tomorrow. Added, decoded, fed back in.</div>
+  <div class="core">3&times;3 convolution, then 5 or 6 blocks: 3&times;3 convolution, per-square normalisation, 1&times;1 widen, 1&times;1 narrow. Five copies, averaged.</div><span>&rarr;</span>
+  <div>Change in the gap for tomorrow. Added, turned back into weather, fed back in.</div>
 </div>
+
+<div class="cols">
+<h2>Key engineering decisions</h2>
 <ul>
-  <li><b>Five small networks, averaged.</b> Three have 0.62 million weights and two, wider and one block deeper, have 1.3 million each: 17 MB in all. Each was trained from a different random start and the server averages their answers, which cancels part of each one's random error. A 10-day forecast takes about 0.4 s on a laptop processor; the limit is 5 s.</li>
-  <li><b>It predicts the gap from normal, not the weather itself.</b> A 365-day table of normal weather, built from 2005 to 2018 only, is subtracted on the way in and added back on the way out.</li>
-  <li><b>It starts as "repeat yesterday".</b> The last layer starts at zero, so the untrained model already equals the simplest baseline and training only adds corrections.</li>
-  <li><b>Rain is handled as log(1 + rain)</b>, so one extreme square does not dominate, and rain can never come out negative.</li>
-  <li><b>Local view only.</b> No attention, no pooling, no map-wide normalisation. Section 4 explains why.</li>
+  <li><b>Lightweight five-model ensemble.</b> Five small networks, each trained from a different random start (three with 0.62 million weights, two wider and one block deeper with 1.3 million), averaged at every step. Averaging cancels part of each network's random error. Gain over one network: 3.7 points.</li>
+  <li><b>Climatological anomaly prediction.</b> The networks predict the gap from normal weather for the day of year, using a 365-day table built from 2005 to 2018. This constrains seasonal drift, though the gap itself can still pick up a bias. The last layer starts at zero, so an untrained model already equals "repeat yesterday".</li>
+  <li><b>Autoregressive multi-step training.</b> One day ahead first, then 4 days in a row with the model fed its own output, which is what it meets when rolled out. An 8-day stage tied on 2019, so we kept the 4-day weights.</li>
+  <li><b>Long-horizon forecast stability.</b> From day 3 the server sends out only a share of the anomaly (for wind about two thirds at day 8), fitted on 2019. Gain: 1.2 points. Rain is cut at zero and temperature held between &minus;40 and +60 &deg;C. The core forecast is deterministic: a zero shock gives a bit-identical answer.</li>
+  <li><b>Spatial sharpness preservation.</b> A loss term penalises maps that are smoother than the real ones, squares above 10 mm of rain count three times, and the grid is never downsampled. Day-8 map variance against the real one: temperature 1.01, rain 0.63, wind 0.78 and 0.83, pressure 0.92, moisture 0.91. The allowed range is 0.40 to 2.50.</li>
+  <li><b>Architecturally enforced perturbation locality.</b> The networks see only through 3&times;3 windows, at most seven per simulated day, and normalise inside each square. So a change can travel at most 7 squares a day (the rule allows 8). This is a property of the design, not something training had to learn. The dashboard draws the limit as a dashed line.</li>
+  <li><b>Tried and rejected.</b> Quantile mapping of rain amounts lost points on 2019: the model already calls 10 mm days about as often as they occur, and its misses are about place and timing. Giving the larger networks double weight also lost.</li>
 </ul>
-<p><b>Training.</b> Years 2005 to 2018 for training, 2019 for every choice we made, 2020 and 2021 kept for the final check. Three stages: one day ahead, then 4 days in a row, then 8 days in a row. In the later stages the model is fed its own output, which is what it faces when rolled out. The loss is squared error weighted by latitude, with squares above 10 mm of rain counted three times, plus the sharpness term in section 3. The 8-day stage tied with the 4-day stage on 2019, so we shipped the 4-day weights. Averaging five networks instead of one added 3.7 points on the unseen years. We also tried correcting rain amounts by quantile mapping and dropped it: it lost points on 2019, because the model already calls heavy rain about as often as it happens and its misses are about place and timing.</p>
 
-<h2>2. How we stop drift</h2>
-<ul>
-  <li><b>The season cannot drift.</b> The seasonal cycle lives in the table of normal weather, not in the network. The network only moves the gap from it.</li>
-  <li><b>Trained on its own output.</b> The 4-day stage makes small errors meet the model again during training instead of first appearing at test time.</li>
-  <li><b>Hard limits on the way out.</b> Rain is cut at zero, temperature is held between &minus;40 and +60 &deg;C, and any non-number is replaced. These are a safety net; in 103 test windows of 10 days none was needed to pass the validity check.</li>
-  <li><b>It fades toward normal as it gets less sure.</b> From day 3 on, only a share of the gap from normal is sent out: for wind about two thirds at day 8. The shares were fitted on 2019. Rain is not faded, because that cost heavy-rain hits. The state that is rolled forward is untouched. With a single network this added 1.2 points on the unseen years.</li>
-  <li><b>No randomness.</b> No dropout, no sampling. A zero shock goes through the same arithmetic as no shock and gives a bit-identical answer, which the dashboard checks live.</li>
-</ul>
-<p>Result: 0 invalid windows out of 103, and at day 4 the forecast beats "repeat yesterday" by 29%.</p>
-
-<h2>3. How we stop blur</h2>
-<ul>
-  <li><b>A sharpness term in the loss.</b> Squared error alone rewards smooth averages. We add a penalty when the spread of values across the map differs from the spread in the real weather.</li>
-  <li><b>Full resolution all the way.</b> Nothing is downsampled and upsampled, so fine detail is never thrown away.</li>
-  <li><b>Extra weight on heavy rain</b>, the field that blurs first.</li>
-</ul>
-<table>
-  <tr><th>Day-8 map variance, model / real</th><th class="n">Temp</th><th class="n">Rain</th><th class="n">Wind E</th><th class="n">Wind N</th><th class="n">Pressure</th><th class="n">Moisture</th></tr>
-  <tr><td>Allowed range 0.40 to 2.50</td><td class="n">1.01</td><td class="n">0.63</td><td class="n">0.78</td><td class="n">0.83</td><td class="n">0.92</td><td class="n">0.91</td></tr>
-</table>
-
-<h2>4. Shocks stay local by construction</h2>
-<p>Every network sees only through 3&times;3 windows, at most seven per simulated day. So a change to one square can reach at most 7 squares away after one day, 14 after two, and so on. The rule allows 8 per day. This is a property of the design, not something we hope training learned. Any map-wide operation would let a shock in the Bay of Bengal touch Kashmir on day 1, so we used none: even the normalisation works inside each square, across channels. The dashboard draws this limit as a dashed line and the response stays inside it.</p>
-
-<h2>5. Measured results</h2>
+<h2>Validation and benchmark results</h2>
 <table>
   <tr><th>Part of the automatic grade</th><th class="n">Ours</th><th>Detail</th></tr>
   <tr><td>Forecast error</td><td class="n">29.4 / 30</td><td>Skill against the better of "repeat yesterday" and "normal for the season": day 1 +0.28, day 4 +0.08, day 8 &minus;0.01</td></tr>
   <tr><td>Heavy rain (10 mm/day)</td><td class="n">8.0 / 15</td><td>Hit-rate skill +0.05 over the better baseline</td></tr>
   <tr><td>Sharpness</td><td class="n">10 / 10</td><td>All six fields inside the allowed range</td></tr>
   <tr><td>Shock tests</td><td class="n">12.8 / 15</td><td>Both shocks give a local, non-zero response in every window. A zero shock changes nothing.</td></tr>
-  <tr><td><b>Model total</b></td><td class="n"><b>60.2 / 70</b></td><td>Repo scan on a clean clone: 15 / 15</td></tr>
+  <tr><td><b>Model total</b></td><td class="n"><b>60.2 / 70</b></td><td>Repo scan on a clean clone: 15 / 15. At day 4 the forecast beats "repeat yesterday" by 29%.</td></tr>
 </table>
-<p class="note">These come from our own scoreboard, which calls the organizers' scoring functions on 103 windows from 2020 and 2021. The hidden test uses other dates, so the official numbers will differ.</p>
-
-<h2>6. Failure modes</h2>
-<ul>
-  <li><b>Past a week it adds little.</b> Even with the fade, at day 8 the forecast is slightly worse than simply showing normal weather for the season (skill &minus;0.01).</li>
-  <li><b>Heavy rain is under-called.</b> Rain keeps only 63% of its real map variance at day 8 and heavy-rain skill is small. One square is about 100 km and one step is a day, so cloudbursts and city floods are out of reach.</li>
-  <li><b>Wind shocks fade too fast.</b> For the "monsoon stall" shock the response spread outward by days 4 to 8 in only 23% of windows. The model damps a wind change before it travels.</li>
-  <li><b>Occasional over-reaction.</b> For the "warm ocean" shock the response stayed within 5 standard deviations in 85% of windows and spread outward in 77%, not all. The overshoot is always in rain.</li>
-  <li><b>Cyclones are too weak.</b> A cyclone's core is smaller than one square, so the model shows a low, not its true strength.</li>
-  <li><b>Far-out what-ifs are guesses.</b> A change well beyond anything in 2005 to 2018 takes the model outside what it learned.</li>
-</ul>
+<p class="note"><b>How to read these.</b> Training used 2005 to 2018. Every choice (weights, ensemble members, fade) was made on 2019. The scores are from 2020 and 2021, run through the organisers' scoring functions by our own scoreboard. We checked several versions on those two years during the event, so the numbers may be slightly optimistic, and the hidden test uses other dates. Speed and memory were measured on a laptop held to 4 cores: 0.45 s per answer and 0.58 GB, against limits of 5 s and 6 GB.</p>
 </div>
 </section>
 
-<!-- ============================== PAGE 2 ============================== -->
+<!-- ============================== PAGE 2: PRODUCT AND IMPACT ============================== -->
 <section class="page p2">
 <header>
-  <h1>One map, three questions</h1>
-  <div class="meta">What is coming, how sure are we, what does it depend on<br>Plain JavaScript and canvas: no map tiles, no internet</div>
+  <h1>Beyond forecasting <small>a laboratory for the monsoon</small></h1>
+  <div class="meta" style="white-space: nowrap">What is coming, how sure are we,<br>what does it depend on</div>
 </header>
 
-<figure>
-  <img src="img/whatif.png" alt="What-if tab">
-  <figcaption><b>What-if tab.</b> The official "warm Bay of Bengal" shock (orange box, +3 &deg;C and +15% moisture), rain two days later. Left: without. Middle: with. Right: the difference. The dashed line is the furthest the model can carry a change by that day. Grey squares are where fewer than 45 of 50 alternative runs agree which way the change pushes.</figcaption>
-</figure>
+<div class="three">
+  <div><b>Forecast</b>Today's weather &rarr; the next 10 days</div>
+  <div><b>What-if engine</b>Changed weather &rarr; an alternative future</div>
+  <div class="star"><b>Butterfly Finder</b>A chosen outcome &rarr; the starting conditions that drive it</div>
+</div>
+
 <figure>
   <img src="img/finder.png" alt="Butterfly Finder tab">
-  <figcaption><b>Butterfly Finder tab.</b> Question: what does rain near Kolkata on day 4 (black box) depend on? Middle: the squares of the start day that matter most. Right: we nudge the orange patch and rerun the model. Predicted change +1.82 mm/day, real rerun +2.16 mm/day, the same nudge moved half a map away 0.00.</figcaption>
+  <figcaption><h3>Butterfly Finder: a gradient-based sensitivity engine</h3>
+  Pick an outcome, here rain near Kolkata on day 4 (black box). VARUNA back-propagates through the forecast to find which squares and fields of the start day drive it (middle map). Then it tests its own answer: it nudges the orange patch and reruns the model (right map).
+  <div class="proof"><div><b>+1.82</b>mm/day predicted from sensitivity</div><div><b>+2.16</b>mm/day in a direct model rerun</div><div><b>0.00</b>same nudge half a map away</div></div>
+  For temperature the two agree to 0.01 &deg;C. This is the model's sensitivity, not proven real-world cause. Method after Hakim and Masanam (2023).</figcaption>
+</figure>
+<figure>
+  <img src="img/whatif.png" alt="What-if tab">
+  <figcaption><h3>What-if engine</h3>
+  The official "warm Bay of Bengal" shock (orange box, +3 &deg;C and +15% moisture), rain two days later: without, with, and the difference. The dashed line is the furthest the model can carry a change by that day. Grey squares are where fewer than 45 of 50 futures agree which way the change pushes. Any region, any of five fields, about 0.4 s per rerun, so a judge can ask for a new shock on the spot.</figcaption>
 </figure>
 
 <div class="cols">
-<h2>The visualization</h2>
-<p>Everything on screen is a live model run. The forecast and every what-if are calls from the page to the graded server's own route, and a panel shows the measured speed, the zero-shock test and a same-input-twice test.</p>
+<h2>The rest of the dashboard</h2>
 <ul>
-  <li><b>Forecast: what is coming.</b> The model's map sits next to what really happened and a third map shows the gap. Click any square for its day-by-day chart. Six fields, 10 days, play button.</li>
-  <li><b>50 futures: how sure are we.</b> The model runs 50 times from slightly nudged starts with a small random kick each day. The kick is set to the model's own one-day miss measured on 2019. On 2020 and 2021 the spread of the 50 runs is 0.70 to 1.0 of the real miss, so it is slightly too confident late in the forecast and we say so on screen. Maps show how many of the 50 cross a line you pick, a bad-case run, and where the runs split. All 50 take about 1.3 s.</li>
-  <li><b>Butterfly Finder: what does it depend on.</b> Pick an outcome. We back-propagate through the forecast to find which squares and which fields of the start day it depends on, a method used in published work on learned weather models (Hakim and Masanam 2023). Then we test the map against a real rerun, as in the figure. For temperature the prediction and the rerun agreed to 0.01 &deg;C (+0.19 against +0.19).</li>
-  <li><b>Alerts: who should act.</b> Five roles (farmer, fisher, heat officer, hill routes, logistics). Each has plain rules, such as rain of 10 mm or more within 3 days, checked in every one of the 50 futures. The page shows the count, the likely day, a one-line reason with the numbers behind it, and how unusual the start day is against the training years. Every threshold is in one file with its source.</li>
-  <li><b>What-if: change it yourself.</b> Paint any region or type a box by latitude and longitude. Set a change in temperature, moisture, wind, pressure or rain. Both official shocks are one click. A rerun takes about 0.4 s, so a judge can ask for any shock on the spot. A strength sweep reruns the change at half to double strength.</li>
-  <li><b>Also on the page.</b> A sea route between two ports that avoids strong wind. A physics exam of 12 live checks: on the demo day 11 pass, and the one fail (after 30 days in a row the rain map keeps 39% of its day-1 contrast, just under our 40% line) is shown, not hidden. A monsoon phase line. A plain-words ask box with template answers.</li>
+  <li><b>Live coupling.</b> Every forecast and what-if on screen is a live call to the graded server's own route. A panel shows the speed, the zero-shock test and a same-input-twice test.</li>
+  <li><b>Forecast.</b> The model next to what really happened, and the gap between them. Click a square for its day-by-day chart.</li>
+  <li><b>50 futures, from residual-based stochastic perturbations.</b> Fifty runs from nudged starts, each given a small random kick per day sized to the model's own one-day miss on 2019. Their spread is 0.70 to 1.0 of the real miss on 2020 and 2021. Maps show how many of 50 cross a line you pick, a bad case, and where the runs split. Weather centres already run ensembles; ours sits beside the what-if on the same map.</li>
+  <li><b>Alerts.</b> Plain rules for five roles, checked in each of the 50 futures, with the count, the likely day and the numbers behind it.</li>
+  <li><b>Also.</b> A wind-aware sea route. A physical consistency suite of 12 live checks (11 pass on the demo day; the fail is shown). A monsoon phase line. A natural-language query box (template-based).</li>
 </ul>
 
-<h2>Impact use case: act early, and know how much to trust it</h2>
-<p style="break-inside: avoid">A normal forecast gives one answer and no sense of how firm it is. People who must act on weather need to know what is coming, how firm it is, and what to watch. The Alerts tab turns the 50 futures into a call for each role.</p>
+<h2>Applications: the five roles in the Alerts tab</h2>
 <table>
   <tr><th>Who</th><th>Their question</th><th>What VARUNA shows</th></tr>
-  <tr><td>District disaster officer</td><td>Do I move pumps and teams in the next 3 days?</td><td>How many of 50 futures give very heavy rain over the district within 5 days, and the bad-case map</td></tr>
-  <tr><td>Farm advisory officer</td><td>Is it safe to leave the cut crop in the field this week?</td><td>"Rain on a cut crop: act, 50 of 50 futures, starts around day 1", with the reason and the day-by-day chart</td></tr>
-  <tr><td>Fisheries officer</td><td>Will the wind at sea be too strong?</td><td>Count of futures with a daily mean wind of 10.8 m/s or more over sea squares within 3 days</td></tr>
-  <tr><td>Heat officer</td><td>Is a hot spell likely to hold?</td><td>Count of futures with 2 or more days in a row at least 3 &deg;C above normal</td></tr>
-  <tr><td>State planner</td><td>What if the monsoon wind stalls?</td><td>The what-if map: where rain drops, by how much, and where the answer is not robust</td></tr>
+  <tr><td>Farmer</td><td>Is the cut crop safe for 3 days?</td><td>Futures with 10 mm or more in a day within 3 days</td></tr>
+  <tr><td>Fisher</td><td>Too windy at sea in 3 days?</td><td>Futures with daily mean wind of 10.8 m/s or more at sea</td></tr>
+  <tr><td>Heat officer</td><td>A hot spell this week?</td><td>Futures with 2 or more days at least 3 &deg;C above normal</td></tr>
+  <tr><td>Hill routes</td><td>Heavy rain or cold in the hills?</td><td>Futures with 10 mm or more above 1000 m; a cold-spell rule</td></tr>
+  <tr><td>Logistics</td><td>Very heavy rain within 5 days?</td><td>Futures with 25 mm or more in a day within 5 days</td></tr>
 </table>
-<p>The Butterfly Finder adds something a forecast cannot: where to watch. If rain over a city on day 4 depends mostly on moisture and pressure in one patch of sea, that patch is where an early sign will show first.</p>
+<p class="note">Thresholds are for 100 km daily squares; several are team choices and marked on screen. This is a regional indicator that does not replace official warnings, and no agency has tested it. The Finder adds a model-indicated region worth watching, not a proven early sign.</p>
 
-<h2>Honest limits and what is next</h2>
-<ul>
-  <li>Counts out of 50 are how often the model's scenarios do something. They are not calibrated probabilities.</li>
-  <li>A what-if or a sensitivity map shows what this model does. It is not proof of real-world cause.</li>
-  <li>This is a regional indicator at 100 km and one day. It does not replace official warnings. Some alert thresholds are our own choices and are marked on screen.</li>
-  <li>The sea route uses wind only: no waves, tides, depth or shipping lanes.</li>
-  <li>Next: crop calendars for the farm checks, and a longer training run to lift day-8 skill.</li>
-</ul>
+<h2>Validated boundaries and future work</h2>
+<table>
+  <tr><th>What we measured</th><th>Next step</th></tr>
+  <tr><td>Past a week it adds little: day-8 skill &minus;0.01 against normal weather</td><td>Longer multi-day training</td></tr>
+  <tr><td>Heavy rain: frequency about right, place and timing weak (8.0 / 15); the most intense rain is too weak (day-8 variance 0.63)</td><td>Loss terms aimed at extreme rain</td></tr>
+  <tr><td>Wind shock fades too fast: the response spreads outward in 23% of windows</td><td>Training on perturbed pairs</td></tr>
+  <tr><td>Warm-ocean shock overshoots 5 standard deviations in 15% of windows, always in rain; spreads outward in 77%</td><td>Bounded rain response</td></tr>
+  <tr><td>Over 30 days in a row the rain map keeps 39% of its day-1 contrast, under our 40% line</td><td>Longer rollouts in training</td></tr>
+  <tr><td>One square is 100 km and one step is a day; cyclone cores are smaller than a square</td><td>A finer regional grid</td></tr>
+  <tr><td>Counts out of 50 are scenario frequencies, not calibrated probabilities</td><td>Calibration against observed frequencies</td></tr>
+  <tr><td>A what-if far outside 2005 to 2018 is extrapolation</td><td>A reliability flag; start-day unusualness is already shown</td></tr>
+</table>
 </div>
-<div class="foot">Built during the event with PyTorch, NumPy, xarray, FastAPI and uvicorn. No external weather data or services. AI coding tools were used and all code was written during the hackathon. How to train, run and check everything: README.md in the repo.</div>
+<div class="foot">Built during the event with PyTorch, NumPy, xarray, FastAPI and uvicorn. No external weather data or services. AI coding tools were used and all code was written during the hackathon. The dashboard runs locally from the repo: README.md has the two commands and screenshots. There is no hosted demo.</div>
 </section>
 </body>
 </html>
